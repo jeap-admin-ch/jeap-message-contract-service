@@ -1,0 +1,44 @@
+{
+  "eventName": "ActivZoneEnteredEvent",
+  "description": "Device entered in activation zone.",
+  "publishingSystem": "ACTIV",
+  "scope": "public",
+  "topic": "activ-activation-zoneentered",
+  "compatibilityMode": "BACKWARD",
+  "versions": [
+    {
+      "version": "1.0.0",
+      "valueSchema": "ActivZoneEnteredEvent_v1.0.0.avdl"
+    },
+    {
+      "version": "2.0.0",
+      "valueSchema": "ActivZoneEnteredEvent_v2.0.0.avdl"
+    }
+  ],
+  "contracts": {
+    "publishers": [
+      {
+        "service": "activ-activation-service",
+        "publishedVersions": [
+          "2.0.0"
+        ]
+      }
+    ],
+    "subscribers": [
+      {
+        "system": "BOGA",
+        "service": "boga-core-service",
+        "subscribedVersions": [
+          "2.0.0"
+        ]
+      },
+      {
+        "system": "ACTIV",
+        "service": "activ-externalmocks-service",
+        "subscribedVersions": [
+          "2.0.0"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: "jdbc:h2:mem:testdb"
+  flyway:
+    locations: classpath:db/migration/common
+
+jeap:
+  messagecontract:
+    users:
+      upload-contract-users:
+        - username: upload
+          password: "{noop}secret"
+      write-users:
+        - username: write
+          password: "{noop}secret"
+
+logging.level:
+  ch.admin.bit.jeap.messagecontract: debug

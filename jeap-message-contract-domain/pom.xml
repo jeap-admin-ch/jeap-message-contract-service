@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.admin.bit.jeap</groupId>
+        <artifactId>jeap-message-contract-service</artifactId>
+        <version>3.25.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>jeap-message-contract-domain</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>ch.admin.bit.jeap</groupId>
+            <artifactId>jeap-message-contract-persistence</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ch.admin.bit.jeap</groupId>
+            <artifactId>jeap-message-contract-messagetype-registry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ch.admin.bit.jeap</groupId>
+            <artifactId>jeap-spring-boot-monitoring-starter</artifactId>
+        </dependency>
+
+        <!-- test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>ch.admin.bit.jeap</groupId>
+            <artifactId>jeap-message-contract-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

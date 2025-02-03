@@ -1,0 +1,5 @@
+protocol SystemCommonProtocol {
+	record SystemCommon {
+		string attribute;
+	}
+}
