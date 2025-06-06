@@ -33,6 +33,7 @@
     </parent>
 
     <artifactId>jeap-message-contract-service</artifactId>
+    <name>${project.groupId}:${project.artifactId}</name>
     <version>3.31.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 

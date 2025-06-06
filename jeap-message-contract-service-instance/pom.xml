@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>jeap-message-contract-service-instance</artifactId>
+    <name>${project.groupId}:${project.artifactId}</name>
     <packaging>pom</packaging>
 
     <properties>
