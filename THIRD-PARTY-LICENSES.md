@@ -8,11 +8,11 @@ Third-party dependencies grouped by their license type (see [pom.xml](/pom.xml) 
 Apache License Version 2.0
 -------------------------------
 
- * jeap-message-contract-domain - [ch.admin.bit.jeap:jeap-message-contract-domain](https://github.com/jeap-admin-ch/jeap-message-contract-service/tree/main/jeap-message-contract-domain)
- * jeap-message-contract-messagetype-registry - [ch.admin.bit.jeap:jeap-message-contract-messagetype-registry](https://github.com/jeap-admin-ch/jeap-message-contract-service/tree/main/jeap-message-contract-messagetype-registry)
- * jeap-message-contract-persistence - [ch.admin.bit.jeap:jeap-message-contract-persistence](https://github.com/jeap-admin-ch/jeap-message-contract-service/tree/main/jeap-message-contract-persistence)
- * jeap-message-contract-test - [ch.admin.bit.jeap:jeap-message-contract-test](https://github.com/jeap-admin-ch/jeap-message-contract-service/tree/main/jeap-message-contract-test)
- * jeap-message-contract-web - [ch.admin.bit.jeap:jeap-message-contract-web](https://github.com/jeap-admin-ch/jeap-message-contract-service/tree/main/jeap-message-contract-web)
+ * ch.admin.bit.jeap:jeap-message-contract-domain - [ch.admin.bit.jeap:jeap-message-contract-domain](https://github.com/jeap-admin-ch/jeap-message-contract-service/tree/main/jeap-message-contract-domain)
+ * ch.admin.bit.jeap:jeap-message-contract-messagetype-registry - [ch.admin.bit.jeap:jeap-message-contract-messagetype-registry](https://github.com/jeap-admin-ch/jeap-message-contract-service/tree/main/jeap-message-contract-messagetype-registry)
+ * ch.admin.bit.jeap:jeap-message-contract-persistence - [ch.admin.bit.jeap:jeap-message-contract-persistence](https://github.com/jeap-admin-ch/jeap-message-contract-service/tree/main/jeap-message-contract-persistence)
+ * ch.admin.bit.jeap:jeap-message-contract-test - [ch.admin.bit.jeap:jeap-message-contract-test](https://github.com/jeap-admin-ch/jeap-message-contract-service/tree/main/jeap-message-contract-test)
+ * ch.admin.bit.jeap:jeap-message-contract-web - [ch.admin.bit.jeap:jeap-message-contract-web](https://github.com/jeap-admin-ch/jeap-message-contract-service/tree/main/jeap-message-contract-web)
  * ch.admin.bit.jeap:jeap-messaging-avro - [ch.admin.bit.jeap:jeap-messaging-avro](https://github.com/jeap-admin-ch/jeap-messaging/tree/main/jeap-messaging-avro)
  * ch.admin.bit.jeap:jeap-messaging-avro-compiler - [ch.admin.bit.jeap:jeap-messaging-avro-compiler](https://github.com/jeap-admin-ch/jeap-messaging/tree/main/jeap-messaging-avro-compiler)
  * ch.admin.bit.jeap:jeap-messaging-avro-validator - [ch.admin.bit.jeap:jeap-messaging-avro-validator](https://github.com/jeap-admin-ch/jeap-messaging/tree/main/jeap-messaging-avro-validator)
