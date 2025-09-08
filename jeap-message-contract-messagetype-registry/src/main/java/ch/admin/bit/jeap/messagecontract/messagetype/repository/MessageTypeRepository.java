@@ -5,11 +5,13 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.transport.CredentialsProvider;
 
 import java.io.Closeable;
 import java.io.File;
@@ -30,13 +32,16 @@ public class MessageTypeRepository implements Closeable {
 
     private final JsonFactory jsonFactory = new JsonFactory();
     private final ObjectMapper objectMapper;
-    private File gitRepoPath;
+    private final String gitUri;
+    @Setter
+    protected CredentialsProvider credentialsProvider;
+    File gitRepoPath;
     private Git git;
 
-    MessageTypeRepository(String gitUri) {
+    protected MessageTypeRepository(String gitUri) {
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        cloneGitRepo(gitUri);
+        this.gitUri = gitUri;
     }
 
     @Override
@@ -96,7 +101,7 @@ public class MessageTypeRepository implements Closeable {
                 .toList();
     }
 
-    private void cloneGitRepo(String gitUri) {
+    public void cloneGitRepo() {
         File tempDir = null;
         try {
             tempDir = Files.createTempDirectory("messageTypeRepo").toFile();
@@ -105,6 +110,7 @@ public class MessageTypeRepository implements Closeable {
             this.git = Git.cloneRepository()
                     .setURI(gitUri)
                     .setDirectory(tempDir)
+                    .setCredentialsProvider(this.credentialsProvider)
                     .call();
             this.gitRepoPath = tempDir;
         } catch (IOException | GitAPIException e) {
@@ -174,4 +180,5 @@ public class MessageTypeRepository implements Closeable {
             log.error("Failed to delete {}", dir, e);
         }
     }
+
 }

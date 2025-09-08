@@ -2,6 +2,7 @@ package ch.admin.bit.jeap.messagecontract.domain.schema;
 
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepository;
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepositoryFactory;
+import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepositoryProperties;
 import ch.admin.bit.jeap.messagecontract.persistence.model.CompatibilityMode;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContract;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole;
@@ -33,7 +34,7 @@ class MessageSchemaServiceTest {
 
     @BeforeEach
     void setup() {
-        messageSchemaService = new MessageSchemaService(new MessageTypeRepositoryFactory());
+        messageSchemaService = new MessageSchemaService(new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties()));
     }
 
     @Test
