@@ -1,8 +1,8 @@
 publiccodeYmlVersion: 0.4.0
 name: jeap-message-contract-service
 applicationSuite: jEAP
-softwareVersion: 3.40.0
-releaseDate: 2025-09-02
+softwareVersion: 3.41.0
+releaseDate: 2025-09-08
 url: "https://github.com/jeap-admin-ch/jeap-message-contract-service.git"
 landingURL: "https://github.com/jeap-admin-ch/jeap"
 platforms:
