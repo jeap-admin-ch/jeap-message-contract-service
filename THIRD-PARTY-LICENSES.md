@@ -37,6 +37,7 @@ Apache License Version 2.0
  * Jackson-module-parameter-names - [com.fasterxml.jackson.module:jackson-module-parameter-names](https://github.com/FasterXML/jackson-modules-java8/jackson-module-parameter-names)
  * JavaEWAH - [com.googlecode.javaewah:JavaEWAH](https://github.com/lemire/javaewah)
  * json-path - [com.jayway.jsonpath:json-path](https://github.com/jayway/JsonPath)
+ * Nimbus JOSE+JWT - [com.nimbusds:nimbus-jose-jwt](https://bitbucket.org/connect2id/nimbus-jose-jwt)
  * JSON library from Android SDK - [com.vaadin.external.google:android-json](http://developer.android.com/sdk)
  * HikariCP - [com.zaxxer:HikariCP](https://github.com/brettwooldridge/HikariCP)
  * Apache Commons Codec - [commons-codec:commons-codec](https://commons.apache.org/proper/commons-codec/)
@@ -188,6 +189,11 @@ BSD License 3
  * JGit - Apache sshd-based SSH support - [org.eclipse.jgit:org.eclipse.jgit.ssh.apache](https://www.eclipse.org/jgit//org.eclipse.jgit.ssh.apache)
  * Hamcrest - [org.hamcrest:hamcrest](http://hamcrest.org/JavaHamcrest/)
  * asm - [org.ow2.asm:asm](http://asm.ow2.io/)
+
+Bouncy Castle Licence
+-------------------------------
+
+ * Bouncy Castle Provider - [org.bouncycastle:bcprov-jdk18on](https://www.bouncycastle.org/download/bouncy-castle-java/)
 
 CC0 1.0 Universal
 -------------------------------
