@@ -136,6 +136,8 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
         if (response.statusCode() == 200) {
             JsonNode jsonNode = objectMapper.readTree(response.body());
             return jsonNode.get("id").asLong();
+        } else {
+            log.warn("Failed to get installation ID: {} - {}", response.statusCode(), response.body());
         }
 
         return null;
@@ -156,6 +158,8 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
         if (response.statusCode() == 201) {
             JsonNode jsonNode = objectMapper.readTree(response.body());
             return jsonNode.get("token").asText();
+        } else {
+            log.warn("Failed to get installation access token: {} - {}", response.statusCode(), response.body());
         }
         return null;
     }
