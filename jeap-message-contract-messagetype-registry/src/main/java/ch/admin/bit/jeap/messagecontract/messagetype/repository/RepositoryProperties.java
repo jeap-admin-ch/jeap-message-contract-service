@@ -18,9 +18,8 @@ public class RepositoryProperties {
     private Map<String, String> parameters = Map.of();
 
     public enum RepositoryType {
-        BITBUCKET,
         GITHUB,
-        LOCAL
+        NONE
     }
 
 }
