@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Update parent from 27.3.0 to 27.4.0
+- update commons-io from 2.19.0 to 2.20.0
 
 ## [3.44.0] - 2025-09-29
 
