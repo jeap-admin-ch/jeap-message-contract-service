@@ -15,7 +15,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest(properties = {
-        "spring.flyway.locations=classpath:db/migration/common",
         "spring.datasource.url=jdbc:h2:mem:db;MODE=PostgreSQL"
 })
 @ContextConfiguration(classes = PersistenceConfiguration.class)

@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-@DataJpaTest(properties = "spring.flyway.locations=classpath:db/migration/common")
+@DataJpaTest
 @ContextConfiguration(classes = {PersistenceConfiguration.class, DomainConfiguration.class})
 class MessageContractServiceTest {
 

@@ -15,7 +15,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest(properties = "spring.flyway.locations=classpath:db/migration/common")
+@DataJpaTest
 @ContextConfiguration(classes = {PersistenceConfiguration.class, DomainConfiguration.class})
 class DeploymentServiceTest {
 

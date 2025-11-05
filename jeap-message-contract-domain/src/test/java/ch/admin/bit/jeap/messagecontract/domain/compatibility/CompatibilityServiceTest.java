@@ -24,7 +24,7 @@ import static ch.admin.bit.jeap.messagecontract.persistence.model.MessageContrac
 import static ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole.PRODUCER;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest(properties = "spring.flyway.locations=classpath:db/migration/common")
+@DataJpaTest
 @ContextConfiguration(classes = {PersistenceConfiguration.class, DomainConfiguration.class, MessageTypeRepositoryConfiguration.class})
 class CompatibilityServiceTest {
 
