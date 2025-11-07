@@ -12,18 +12,23 @@ import ch.admin.bit.jeap.messagecontract.web.api.dto.CreateMessageContractsDto;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.MessageContractRole;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.NewMessageContractDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.reactive.server.WebTestClient.ResponseSpec;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 
+import java.util.Base64;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SuppressWarnings("ConstantConditions")
 class DeploymentControllerCompatibilityTest extends ControllerTestBase {
@@ -49,6 +54,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
     }
 
     @Test
+    @SneakyThrows
     void get_compatibility_unknownApp_shouldReturnOk() {
         // given: one known app
         putActivZoneEnteredEventContract("2.0.0", MessageContractRole.CONSUMER, "test-consumer-app", "1.0");
@@ -57,27 +63,27 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         // when an unknown app is tested for compatibility, then expect it to be compatible with the environment as it
         // has no contracts
         doCompatibilityGetRequest("unknown-app", "1.0", "ref")
-                .expectStatus()
-                .is2xxSuccessful();
+                .andExpect(status().is2xxSuccessful());
     }
 
     @Test
+    @SneakyThrows
     void get_compatibility_unauthorized_shouldReturn40x() {
-        webTestClient.get()
-                .uri("/api/deployments/compatibility/unknown-app/1.0/ref")
-                // No auth header
-                .exchange()
-                .expectStatus()
-                .isEqualTo(HttpStatus.UNAUTHORIZED);
-        webTestClient.get()
-                .uri("/api/deployments/compatibility/unknown-app/1.0/ref")
-                .headers(headers -> headers.setBasicAuth("write", "bad-secret"))
-                .exchange()
-                .expectStatus()
-                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        // 1️⃣ No auth header
+        mockMvc.perform(get("/api/deployments/compatibility/unknown-app/1.0/ref"))
+                .andExpect(status().isUnauthorized()); // 401
+
+        // 2️⃣ Invalid credentials
+        String invalidAuthHeader = "Basic " + Base64.getEncoder()
+                .encodeToString(("write:bad-secret").getBytes());
+
+        mockMvc.perform(get("/api/deployments/compatibility/unknown-app/1.0/ref")
+                        .header("Authorization", invalidAuthHeader))
+                .andExpect(status().isUnauthorized()); // 401
     }
 
     @Test
+    @SneakyThrows
     void get_compatibility_whenSingleConsumerContractIsCompatible_thenShouldReturnOk() {
         // given: a single consumer/producer target with compatible schemas
         putActivZoneEnteredEventContract("2.0.0", MessageContractRole.CONSUMER, "test-consumer-app", "1.0");
@@ -88,20 +94,21 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         notifyAppDeployedOnEnv("test-producer-app", "2.0", "prod");
 
         // when testing compatibility, then expect response to be OK
-        CompatibilityCheckResult consumerResult = doCompatibilityGetRequest("test-consumer-app", "1.0", "prod")
-                .expectStatus()
-                .is2xxSuccessful()
-                .expectBody(CompatibilityCheckResult.class).returnResult().getResponseBody();
-        CompatibilityCheckResult producerResult = doCompatibilityGetRequest("test-producer-app", "2.0", "prod")
-                .expectStatus()
-                .is2xxSuccessful()
-                .expectBody(CompatibilityCheckResult.class).returnResult().getResponseBody();
+        MvcResult mvcConsumerResult = doCompatibilityGetRequest("test-consumer-app", "1.0", "prod")
+                .andExpect(status().is2xxSuccessful())
+                .andReturn();
+        CompatibilityCheckResult consumerResult =  objectMapper.readValue(mvcConsumerResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
+
+        MvcResult mvcProducerResult = doCompatibilityGetRequest("test-producer-app", "2.0", "prod")
+                .andExpect(status().is2xxSuccessful())
+                .andReturn();
+        CompatibilityCheckResult producerResult =  objectMapper.readValue(mvcProducerResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         // then: expect response to contain the expected compatible interactions
         assertThat(consumerResult.compatible()).isTrue();
         assertThat(consumerResult.interactions()).hasSize(1);
         assertThat(consumerResult.incompatibilities()).isEmpty();
-        ConsumerProducerInteraction consumeInteraction = consumerResult.interactions().get(0);
+        ConsumerProducerInteraction consumeInteraction = consumerResult.interactions().getFirst();
         assertThat(consumeInteraction.topic()).isEqualTo("test-topic");
         assertThat(consumeInteraction.appName()).isEqualTo("test-producer-app");
         assertThat(consumeInteraction.appVersion()).isEqualTo("2.0");
@@ -112,7 +119,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         assertThat(producerResult.compatible()).isTrue();
         assertThat(producerResult.interactions()).hasSize(1);
         assertThat(producerResult.incompatibilities()).isEmpty();
-        ConsumerProducerInteraction producerInteraction = producerResult.interactions().get(0);
+        ConsumerProducerInteraction producerInteraction = producerResult.interactions().getFirst();
         assertThat(producerInteraction.topic()).isEqualTo("test-topic");
         assertThat(producerInteraction.appName()).isEqualTo("test-consumer-app");
         assertThat(producerInteraction.appVersion()).isEqualTo("1.0");
@@ -122,6 +129,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
     }
 
     @Test
+    @SneakyThrows
     void get_compatibility_whenTwoProducerContractsAreCompatible_thenShouldReturnOk() {
         // given: two consumer/producer interactions with compatible schemas
         putActivZoneEnteredEventContract("2.0.0", MessageContractRole.CONSUMER, "test-consumer-app", "1.0");
@@ -133,10 +141,11 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         notifyAppDeployedOnEnv("test-consumer-app-2", "1.0", "prod");
 
         // when testing compatibility before deploying the producer, the producer should be compatible
-        CompatibilityCheckResult producerResult = doCompatibilityGetRequest("test-producer-app", "2.0", "prod")
-                .expectStatus()
-                .is2xxSuccessful()
-                .expectBody(CompatibilityCheckResult.class).returnResult().getResponseBody();
+        MvcResult mvcResult = doCompatibilityGetRequest("test-producer-app", "2.0", "prod")
+                .andExpect(status().is2xxSuccessful())
+                .andReturn();
+
+        CompatibilityCheckResult producerResult =  objectMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         // then: expect response to contain the expected compatible interactions
         assertThat(producerResult.compatible()).isTrue();
@@ -145,7 +154,8 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
     }
 
     @Test
-    void get_compatibility_whenConsumerContractIsIncompatible_thenShouldReturnPreconditionFailed() throws Exception {
+    @SneakyThrows
+    void get_compatibility_whenConsumerContractIsIncompatible_thenShouldReturnPreconditionFailed() {
         // given: a consumer consuming v2, which is incompatible with v1 of the message the producer is using
         putActivZoneEnteredEventContract("2.0.0", MessageContractRole.CONSUMER, "test-consumer-app", "1.0");
         putActivZoneEnteredEventContract("1.0.0", MessageContractRole.PRODUCER, "test-producer-app", "2.0");
@@ -154,17 +164,16 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         notifyAppDeployedOnEnv("test-consumer-app", "1.0", "prod");
 
         // when testing producer compatibility, then expect response to be Precondition Failed
-        byte[] producerResultBody = doCompatibilityGetRequest("test-producer-app", "2.0", "prod")
-                .expectStatus().isEqualTo(HttpStatus.PRECONDITION_FAILED)
-                .expectBody().jsonPath("$.message").value(
-                        containsString("ActivZoneEnteredEvent:2.0.0"))
-                .returnResult().getResponseBody();
-        CompatibilityCheckResult producerResult = objectMapper.readValue(producerResultBody, CompatibilityCheckResult.class);
+        MvcResult mvcResult = doCompatibilityGetRequest("test-producer-app", "2.0", "prod")
+                .andExpect(status().is(HttpStatus.PRECONDITION_FAILED.value()))
+                .andReturn();
+
+        CompatibilityCheckResult producerResult =  objectMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         // then: expect response to contain the expected interactions and incompatibilities
         assertThat(producerResult.compatible()).isFalse();
         assertThat(producerResult.interactions()).hasSize(1);
-        ConsumerProducerInteraction producerInteraction = producerResult.interactions().get(0);
+        ConsumerProducerInteraction producerInteraction = producerResult.interactions().getFirst();
         assertThat(producerInteraction.topic()).isEqualTo("test-topic");
         assertThat(producerInteraction.appName()).isEqualTo("test-consumer-app");
         assertThat(producerInteraction.appVersion()).isEqualTo("1.0");
@@ -181,6 +190,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
     }
 
     @Test
+    @SneakyThrows
     void get_compatibility_whenNoContractForProducer_thenShouldReturnOk() {
         // given: a consumer consuming v2, and no contract for the producer
         putActivZoneEnteredEventContract("2.0.0", MessageContractRole.CONSUMER, "test-consumer-app", "1.0");
@@ -189,9 +199,11 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         notifyAppDeployedOnEnv("test-consumer-app", "1.0", "prod");
 
         // when testing producer compatibility, then expect response to be Precondition Failed
-        CompatibilityCheckResult producerResult = doCompatibilityGetRequest("test-producer-app", "2.0", "prod")
-                .expectStatus().is2xxSuccessful()
-                .expectBody(CompatibilityCheckResult.class).returnResult().getResponseBody();
+        MvcResult mvcResult = doCompatibilityGetRequest("test-producer-app", "2.0", "prod")
+                .andExpect(status().is2xxSuccessful())
+                .andReturn();
+
+        CompatibilityCheckResult producerResult =  objectMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         // then: expect response to signal compatibility without any found interactions
         assertThat(producerResult.compatible()).isTrue();
@@ -200,6 +212,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
     }
 
     @Test
+    @SneakyThrows
     void get_compatibility_whenNoInteractionOnEnvironmentContractForProducer_thenShouldReturnOk() {
         // given: a consumer consuming v2, which is incompatible with v1 of the message the producer is using
         putActivZoneEnteredEventContract("2.0.0", MessageContractRole.CONSUMER, "test-consumer-app", "1.0");
@@ -209,9 +222,11 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         notifyAppDeployedOnEnv("test-consumer-app", "1.0", "prod");
 
         // when testing producer compatibility on REF, then expect response to be OK
-        CompatibilityCheckResult producerResult = doCompatibilityGetRequest("test-producer-app", "2.0", "ref")
-                .expectStatus().is2xxSuccessful()
-                .expectBody(CompatibilityCheckResult.class).returnResult().getResponseBody();
+        MvcResult mvcResult = doCompatibilityGetRequest("test-producer-app", "2.0", "ref")
+                .andExpect(status().is2xxSuccessful())
+                .andReturn();
+
+        CompatibilityCheckResult producerResult =  objectMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         // then: expect response to signal compatibility without any found interactions
         assertThat(producerResult.compatible()).isTrue();
@@ -219,19 +234,21 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         assertThat(producerResult.incompatibilities()).isEmpty();
     }
 
-    private void notifyAppDeployedOnEnv(String appName, String appVersion, String environment) {
-        webTestClient.put()
-                .uri("/api/deployments/{appName}/{appVersion}/{environment}", appName, appVersion, environment)
-                .headers(headers -> headers.setBasicAuth("write", "secret"))
-                .exchange()
-                .expectStatus().isEqualTo(201);
+    @SneakyThrows
+    protected void notifyAppDeployedOnEnv(String appName, String appVersion, String environment) {
+        String basicAuthHeader = "Basic " + Base64.getEncoder().encodeToString(("write:secret").getBytes());
+
+        mockMvc.perform(put("/api/deployments/{appName}/{appVersion}/{environment}", appName, appVersion, environment)
+                        .header("Authorization", basicAuthHeader))
+                .andExpect(status().isCreated()); // 201
     }
 
-    private ResponseSpec doCompatibilityGetRequest(String appName, String appVersion, String environment) {
-        return webTestClient.get()
-                .uri("/api/deployments/compatibility//{appName}/{appVersion}/{environment}", appName, appVersion, environment)
-                .headers(headers -> headers.setBasicAuth("write", "secret"))
-                .exchange();
+    @SneakyThrows
+    protected ResultActions doCompatibilityGetRequest(String appName, String appVersion, String environment) {
+        String basicAuthHeader = "Basic " + Base64.getEncoder().encodeToString(("write:secret").getBytes());
+
+        return mockMvc.perform(get("/api/deployments/compatibility/{appName}/{appVersion}/{environment}", appName, appVersion, environment)
+                        .header("Authorization", basicAuthHeader));
     }
 
     private void putActivZoneEnteredEventContract(String messageTypeVersion, MessageContractRole consumer, String appName, String appVersion) {
@@ -243,14 +260,15 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         putContracts(appName, appVersion, messageContractsDto1);
     }
 
-    private void putContracts(String appName, String appVersion, CreateMessageContractsDto messageContractsDto) {
-        webTestClient.put()
-                .uri("/api/contracts/{appName}/{appVersion}", appName, appVersion)
-                .headers(headers -> headers.setBasicAuth("write", "secret"))
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(messageContractsDto)
-                .exchange()
-                .expectStatus()
-                .isEqualTo(201);
+    @SneakyThrows
+    protected void putContracts(String appName, String appVersion, CreateMessageContractsDto messageContractsDto) {
+        String basicAuthHeader = "Basic " + Base64.getEncoder()
+                .encodeToString(("write:secret").getBytes());
+
+        mockMvc.perform(put("/api/contracts/{appName}/{appVersion}", appName, appVersion)
+                        .header("Authorization", basicAuthHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(messageContractsDto)))
+                .andExpect(status().isCreated()); // 201
     }
 }

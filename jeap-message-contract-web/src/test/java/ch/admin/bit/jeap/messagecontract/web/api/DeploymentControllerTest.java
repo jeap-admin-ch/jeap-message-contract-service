@@ -6,13 +6,19 @@ import ch.admin.bit.jeap.messagecontract.persistence.model.CompatibilityMode;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContract;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.DeploymentDto;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
+
+import java.util.Base64;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class DeploymentControllerTest extends ControllerTestBase {
 
@@ -22,6 +28,9 @@ class DeploymentControllerTest extends ControllerTestBase {
     @Autowired
     private JpaMessageContractRepository messageContractRepository;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @AfterEach
     void cleanup() {
         deploymentRepository.deleteAll();
@@ -29,103 +38,116 @@ class DeploymentControllerTest extends ControllerTestBase {
     }
 
     @Test
-    void get_deployments() {
-        webTestClient.get()
-                .uri("/api/deployments")
-                .exchange()
-                .expectStatus()
-                .is2xxSuccessful();
+    void getDeployments() throws Exception {
+        mockMvc.perform(get("/api/deployments"))
+                .andExpect(status().is2xxSuccessful());
     }
 
     @Test
-    void put_deployment_unauthorized() {
-        webTestClient.put()
-                .uri("/api/deployments/test/test/abn")
-                .contentType(MediaType.APPLICATION_JSON)
-                .exchange()
-                .expectStatus()
-                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    void putDeploymentUnauthorized() throws Exception {
+        mockMvc.perform(put("/api/deployments/test/test/abn")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized()); // 401
+    }
+
+
+    @Test
+    void putDeploymentAppNotDefined() throws Exception {
+        // PUT /api/deployments/{appName}/{appVersion}/{environment} with Basic Auth
+        String basicAuthHeader = "Basic " + Base64.getEncoder().encodeToString(("write:secret").getBytes());
+
+        mockMvc.perform(put("/api/deployments/{appName}/{appVersion}/{environment}", "appUnknown", "appVersion", "prod")
+                        .header("Authorization", basicAuthHeader)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk()); // 200
+
+        // GET /api/deployments and assert empty list
+        MvcResult result = mockMvc.perform(get("/api/deployments")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String responseBody = result.getResponse().getContentAsString();
+        List<DeploymentDto> dtos = objectMapper.readValue(
+                responseBody,
+                objectMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
+        );
+
+        assertThat(dtos).isEmpty();
     }
 
     @Test
-    void put_deployment_appNotDefined() {
-        webTestClient.put()
-                .uri("/api/deployments/{appName}/{appVersion}/{environment}", "appUnknown", "appVersion", "prod")
-                .headers(headers -> headers.setBasicAuth("write", "secret"))
-                .exchange()
-                .expectStatus()
-                .isEqualTo(200);
+    void putDeploymentAppDefined() throws Exception {
+        // Save a contract to set up the test
+        messageContractRepository.save(createContract(
+                "myAppName", "appVersion", "test", "test", MessageContractRole.CONSUMER));
 
-        webTestClient.get()
-                .uri("/api/deployments")
-                .exchange()
-                .expectStatus()
-                .isEqualTo(200)
-                .expectBodyList(DeploymentDto.class)
-                .value(dtos -> assertThat(dtos).isEmpty());
+        // PUT /api/deployments/{appName}/{appVersion}/{environment} with Basic Auth
+        String basicAuthHeader = "Basic " + Base64.getEncoder()
+                .encodeToString(("write:secret").getBytes());
+
+        mockMvc.perform(put("/api/deployments/{appName}/{appVersion}/{environment}",
+                        "myAppName", "appVersion", "prod")
+                        .header("Authorization", basicAuthHeader)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isCreated()); // 201
+
+        // GET /api/deployments and assert the list contains one deployment
+        MvcResult result = mockMvc.perform(get("/api/deployments")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String responseBody = result.getResponse().getContentAsString();
+        List<DeploymentDto> dtos = objectMapper.readValue(
+                responseBody,
+                objectMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
+        );
+
+        assertThat(dtos).hasSize(1);
+        assertThat(dtos.getFirst().appName()).isEqualTo("myAppName");
     }
 
     @Test
-    void put_deployment_appDefined() {
-
-        messageContractRepository.save(createContract("myAppName", "appVersion", "test", "test", MessageContractRole.CONSUMER));
-
-        webTestClient.put()
-                .uri("/api/deployments/{appName}/{appVersion}/{environment}", "myAppName", "appVersion", "prod")
-                .headers(headers -> headers.setBasicAuth("write", "secret"))
-                .exchange()
-                .expectStatus()
-                .isEqualTo(201);
-
-        webTestClient.get()
-                .uri("/api/deployments")
-                .exchange()
-                .expectStatus()
-                .isEqualTo(200)
-                .expectBodyList(DeploymentDto.class)
-                .value(dtos -> {
-                    assertThat(dtos).hasSize(1);
-                    assertThat(dtos.get(0).appName()).isEqualTo("myAppName");
-                });
+    void deleteDeploymentUnauthorized() throws Exception {
+        mockMvc.perform(delete("/api/deployments/test/abn"))
+                .andExpect(status().isUnauthorized()); // 401
     }
 
     @Test
-    void delete_deployment_unauthorized() {
-        webTestClient.delete()
-                .uri("/api/deployments/test/abn")
-                .exchange()
-                .expectStatus()
-                .isEqualTo(HttpStatus.UNAUTHORIZED);
-    }
+    void deleteDeploymentAppDefined() throws Exception {
+        // Save a contract to set up the test
+        messageContractRepository.save(createContract(
+                "myAppName", "appVersion", "test", "test", MessageContractRole.CONSUMER));
 
-    @Test
-    void delete_deployment_appDefined() {
+        // PUT /api/deployments/{appName}/{appVersion}/{environment} with Basic Auth
+        String basicAuthHeader = "Basic " + Base64.getEncoder()
+                .encodeToString(("write:secret").getBytes());
 
-        messageContractRepository.save(createContract("myAppName", "appVersion", "test", "test", MessageContractRole.CONSUMER));
+        mockMvc.perform(put("/api/deployments/{appName}/{appVersion}/{environment}",
+                        "myAppName", "appVersion", "prod")
+                        .header("Authorization", basicAuthHeader)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isCreated()); // 201
 
-        webTestClient.put()
-                .uri("/api/deployments/{appName}/{appVersion}/{environment}", "myAppName", "appVersion", "prod")
-                .headers(headers -> headers.setBasicAuth("write", "secret"))
-                .exchange()
-                .expectStatus()
-                .isEqualTo(201);
+        // DELETE /api/deployments/{appName}/{environment} with Basic Auth
+        mockMvc.perform(delete("/api/deployments/{appName}/{environment}", "myAppName", "prod")
+                        .header("Authorization", basicAuthHeader))
+                .andExpect(status().isOk()); // 200
 
-        webTestClient.delete()
-                .uri("/api/deployments/myAppName/prod")
-                .headers(headers -> headers.setBasicAuth("write", "secret"))
-                .exchange()
-                .expectStatus()
-                .isEqualTo(HttpStatus.OK);
+        // GET /api/deployments and assert the list is empty
+        MvcResult result = mockMvc.perform(get("/api/deployments")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        webTestClient.get()
-                .uri("/api/deployments")
-                .exchange()
-                .expectStatus()
-                .isEqualTo(200)
-                .expectBodyList(DeploymentDto.class)
-                .value(dtos -> {
-                    assertThat(dtos).hasSize(0);
-                });
+        String responseBody = result.getResponse().getContentAsString();
+        List<DeploymentDto> dtos = objectMapper.readValue(
+                responseBody,
+                objectMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
+        );
+
+        assertThat(dtos).isEmpty();
     }
 
     private MessageContract createContract(String appName, String appVersion, String commitHash, String branch, MessageContractRole role) {
