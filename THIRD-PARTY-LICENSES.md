@@ -155,8 +155,6 @@ BSD License 3
 -------------------------------
 
  * ANTLR 4 Runtime - [org.antlr:antlr4-runtime](https://www.antlr.org/antlr4-runtime/)
- * commons-compiler - [org.codehaus.janino:commons-compiler](http://janino-compiler.github.io/commons-compiler/)
- * janino - [org.codehaus.janino:janino](http://janino-compiler.github.io/janino/)
  * JGit - Core - [org.eclipse.jgit:org.eclipse.jgit](https://www.eclipse.org/jgit//org.eclipse.jgit)
  * JGit - Apache sshd-based SSH support - [org.eclipse.jgit:org.eclipse.jgit.ssh.apache](https://www.eclipse.org/jgit//org.eclipse.jgit.ssh.apache)
  * Hamcrest - [org.hamcrest:hamcrest](http://hamcrest.org/JavaHamcrest/)
