@@ -38,7 +38,7 @@
     <packaging>pom</packaging>
 
     <properties>
-        <commons-io.version>2.20.0</commons-io.version>
+        <commons-io.version>2.21.0</commons-io.version>
         <maven.javadoc.skip>false</maven.javadoc.skip>
     </properties>
 
