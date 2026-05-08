@@ -7,9 +7,9 @@ import ch.admin.bit.jeap.messagecontract.persistence.model.Deployment;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContract;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
 
@@ -25,7 +25,7 @@ class DeploymentServiceTest {
     @Autowired
     private MessageContractRepository messageContractRepository;
 
-    @MockBean
+    @MockitoBean
     private MessageTypeRepositoryFactory messageTypeRepositoryFactory;
 
     @Test
@@ -57,7 +57,7 @@ class DeploymentServiceTest {
         assertThat(deploymentService.findLast10Deployments()).hasSize(1);
 
         deploymentService.deleteDeployment("app", "ABN");
-        assertThat(deploymentService.findLast10Deployments()).hasSize(0);
+        assertThat(deploymentService.findLast10Deployments()).isEmpty();
     }
 
     @Test

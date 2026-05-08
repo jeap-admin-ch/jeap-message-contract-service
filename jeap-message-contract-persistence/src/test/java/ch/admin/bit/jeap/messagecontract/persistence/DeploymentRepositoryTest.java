@@ -3,8 +3,8 @@ package ch.admin.bit.jeap.messagecontract.persistence;
 import ch.admin.bit.jeap.messagecontract.persistence.model.Deployment;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.test.context.ContextConfiguration;
 
 import java.time.ZonedDateTime;
@@ -57,8 +57,9 @@ class DeploymentRepositoryTest {
         testEntityManager.flush();
 
         Optional<String> version = deploymentRepository.findAppVersionCurrentlyDeployedOnEnvironment("app1", "ABN");
-        assertThat(version).isPresent();
-        assertThat(version.get()).isEqualTo("v2");
+        assertThat(version)
+                .isPresent()
+                .contains("v2");
 
         Optional<String> notDeployedVersion = deploymentRepository.findAppVersionCurrentlyDeployedOnEnvironment("app1", "REF");
         assertThat(notDeployedVersion).isNotPresent();
@@ -107,26 +108,26 @@ class DeploymentRepositoryTest {
     }
 
     @Test
-    public void deleteDeployment() {
+    void deleteDeployment() {
         createAndSaveDeployment("app", "1");
         assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc().size()).isEqualTo(1);
 
         deploymentRepository.deleteDeployment("app", "ABN");
-        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc().size()).isEqualTo(0);
+        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc()).isEmpty();
     }
 
     @Test
-    public void deleteDeploymentDeletesOnlyApp() {
+    void deleteDeploymentDeletesOnlyApp() {
         createAndSaveDeployment("app", "1");
         createAndSaveDeployment("app1", "1");
-        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc().size()).isEqualTo(2);
+        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc()).hasSize(2);
 
         deploymentRepository.deleteDeployment("app", "ABN");
-        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc().size()).isEqualTo(1);
+        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc()).hasSize(1);
     }
 
     @Test
-    public void deleteDeploymentDeletesOnlyGivenEnv() {
+    void deleteDeploymentDeletesOnlyGivenEnv() {
         Deployment deployment = Deployment.builder()
                 .appName("app")
                 .appVersion("1")
@@ -139,11 +140,11 @@ class DeploymentRepositoryTest {
                 .environment("REF")
                 .build();
         deploymentRepository.save(deploymentRef);
-        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc().size()).isEqualTo(2);
+        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc()).hasSize(2);
 
         deploymentRepository.deleteDeployment("app", "ABN");
-        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc().size()).isEqualTo(1);
-        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc().get(0).getEnvironment()).isEqualTo("REF");
+        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc()).hasSize(1);
+        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc().getFirst().getEnvironment()).isEqualTo("REF");
     }
 
     private void createAndSave15AppDeployments() {

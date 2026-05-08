@@ -6,12 +6,12 @@ import ch.admin.bit.jeap.messagecontract.persistence.model.CompatibilityMode;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContract;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.DeploymentDto;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Base64;
 import java.util.List;
@@ -29,7 +29,7 @@ class DeploymentControllerTest extends ControllerTestBase {
     private JpaMessageContractRepository messageContractRepository;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private JsonMapper jsonMapper;
 
     @AfterEach
     void cleanup() {
@@ -68,9 +68,9 @@ class DeploymentControllerTest extends ControllerTestBase {
                 .andReturn();
 
         String responseBody = result.getResponse().getContentAsString();
-        List<DeploymentDto> dtos = objectMapper.readValue(
+        List<DeploymentDto> dtos = jsonMapper.readValue(
                 responseBody,
-                objectMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
         );
 
         assertThat(dtos).isEmpty();
@@ -99,9 +99,9 @@ class DeploymentControllerTest extends ControllerTestBase {
                 .andReturn();
 
         String responseBody = result.getResponse().getContentAsString();
-        List<DeploymentDto> dtos = objectMapper.readValue(
+        List<DeploymentDto> dtos = jsonMapper.readValue(
                 responseBody,
-                objectMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
         );
 
         assertThat(dtos).hasSize(1);
@@ -142,9 +142,9 @@ class DeploymentControllerTest extends ControllerTestBase {
                 .andReturn();
 
         String responseBody = result.getResponse().getContentAsString();
-        List<DeploymentDto> dtos = objectMapper.readValue(
+        List<DeploymentDto> dtos = jsonMapper.readValue(
                 responseBody,
-                objectMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
         );
 
         assertThat(dtos).isEmpty();

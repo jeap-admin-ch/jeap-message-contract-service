@@ -4,7 +4,7 @@ import ch.admin.bit.jeap.messaging.avro.plugin.validator.MessageTypeRegistryCons
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
@@ -31,7 +31,7 @@ public class MessageTypeRepository implements Closeable {
     private static final String COMMON = "_common";
 
     private final JsonFactory jsonFactory = new JsonFactory();
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private final String gitUri;
     @Setter
     protected CredentialsProvider credentialsProvider;
@@ -39,8 +39,9 @@ public class MessageTypeRepository implements Closeable {
     private Git git;
 
     protected MessageTypeRepository(String gitUri) {
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        this.jsonMapper = JsonMapper.builder()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .build();
         this.gitUri = gitUri;
     }
 
@@ -157,7 +158,7 @@ public class MessageTypeRepository implements Closeable {
         log.trace("Loading message type descriptor {}", descriptorFile);
         try {
             JsonParser jsonParser = jsonFactory.createParser(descriptorFile);
-            T descriptor = objectMapper.readValue(jsonParser, descriptorType);
+            T descriptor = jsonMapper.readValue(jsonParser, descriptorType);
             File messageTypeDir = descriptorFile.getParentFile();
             File systemCommonDir = new File(messageTypeDir.getParentFile().getParentFile(), MessageTypeRegistryConstants.COMMON_DIR_NAME);
             File commonDir = new File(systemCommonDir.getParentFile().getParentFile(), MessageTypeRegistryConstants.COMMON_DIR_NAME);

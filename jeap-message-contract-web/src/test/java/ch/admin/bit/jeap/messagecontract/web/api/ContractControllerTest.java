@@ -4,7 +4,6 @@ import ch.admin.bit.jeap.messagecontract.persistence.JpaDeploymentRepository;
 import ch.admin.bit.jeap.messagecontract.persistence.JpaMessageContractRepository;
 import ch.admin.bit.jeap.messagecontract.test.TestRegistryRepo;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -13,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Base64;
 import java.util.List;
@@ -34,7 +34,7 @@ class ContractControllerTest extends ControllerTestBase {
     private JpaDeploymentRepository deploymentRepository;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private JsonMapper jsonMapper;
 
     private String basicAuth(String username, String password) {
         return "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
@@ -85,7 +85,7 @@ class ContractControllerTest extends ControllerTestBase {
         mockMvc.perform(put("/api/contracts/{appName}/{appVersion}", "app", "1.0.0")
                         .header("Authorization", basicAuth("upload", "secret"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(messageContractsDto)))
+                        .content(jsonMapper.writeValueAsString(messageContractsDto)))
                 .andExpect(status().isCreated()); // 201
     }
 
@@ -105,9 +105,9 @@ class ContractControllerTest extends ControllerTestBase {
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
 
-        List<MessageContractDto> dtos = objectMapper.readValue(
+        List<MessageContractDto> dtos = jsonMapper.readValue(
                 result.getResponse().getContentAsString(),
-                objectMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
         );
 
         assertEquals(List.of(contract1, contract2), dtos);
@@ -128,9 +128,9 @@ class ContractControllerTest extends ControllerTestBase {
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
 
-        List<MessageContractDto> dtos = objectMapper.readValue(
+        List<MessageContractDto> dtos = jsonMapper.readValue(
                 result.getResponse().getContentAsString(),
-                objectMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
         );
 
         assertEquals(List.of(contract), dtos);
@@ -163,9 +163,9 @@ class ContractControllerTest extends ControllerTestBase {
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
 
-        List<MessageContractDto> dtos = objectMapper.readValue(
+        List<MessageContractDto> dtos = jsonMapper.readValue(
                 result.getResponse().getContentAsString(),
-                objectMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
         );
 
         assertEquals(expected, dtos.size());
@@ -205,9 +205,9 @@ class ContractControllerTest extends ControllerTestBase {
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
 
-        dtos = objectMapper.readValue(
+        dtos = jsonMapper.readValue(
                 result.getResponse().getContentAsString(),
-                objectMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
         );
 
         assertEquals(1, dtos.size());
@@ -256,7 +256,7 @@ class ContractControllerTest extends ControllerTestBase {
         mockMvc.perform(put("/api/contracts/app/2.0.0")
                         .header("Authorization", basicAuth("write", "secret"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(messageContractsDto)))
+                        .content(jsonMapper.writeValueAsString(messageContractsDto)))
                 .andExpect(status().isBadRequest()); // 400
     }
 
@@ -296,9 +296,9 @@ class ContractControllerTest extends ControllerTestBase {
 
         String responseBody = result.getResponse().getContentAsString();
 
-        List<MessageContractDto> dtos = objectMapper.readValue(
+        List<MessageContractDto> dtos = jsonMapper.readValue(
                 responseBody,
-                objectMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
         );
 
         assertTrue(dtos.contains(contract1));
@@ -343,9 +343,9 @@ class ContractControllerTest extends ControllerTestBase {
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
 
-        List<MessageContractDto> prodDtos = objectMapper.readValue(
+        List<MessageContractDto> prodDtos = jsonMapper.readValue(
                 prodResult.getResponse().getContentAsString(),
-                objectMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
         );
 
         assertTrue(prodDtos.contains(contract1));
@@ -359,9 +359,9 @@ class ContractControllerTest extends ControllerTestBase {
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
 
-        List<MessageContractDto> refDtos = objectMapper.readValue(
+        List<MessageContractDto> refDtos = jsonMapper.readValue(
                 refResult.getResponse().getContentAsString(),
-                objectMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
         );
 
         assertTrue(refDtos.isEmpty());
@@ -378,9 +378,9 @@ class ContractControllerTest extends ControllerTestBase {
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
 
-        List<MessageContractDto> refDtosAfter = objectMapper.readValue(
+        List<MessageContractDto> refDtosAfter = jsonMapper.readValue(
                 refResultAfter.getResponse().getContentAsString(),
-                objectMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
         );
 
         assertFalse(refDtosAfter.contains(contract1));
@@ -419,7 +419,7 @@ class ContractControllerTest extends ControllerTestBase {
                         .param("transactionId", transactionId)
                         .header("Authorization", basicAuth("write", "secret"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(messageContractsDto)))
+                        .content(jsonMapper.writeValueAsString(messageContractsDto)))
                 .andExpect(status().isCreated()); // 201
     }
 
@@ -428,7 +428,7 @@ class ContractControllerTest extends ControllerTestBase {
         mockMvc.perform(put("/api/contracts/{appName}/{appVersion}", appName, appVersion)
                         .header("Authorization", basicAuth("write", "secret"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(messageContractsDto)))
+                        .content(jsonMapper.writeValueAsString(messageContractsDto)))
                 .andExpect(status().isCreated()); // 201
     }
 
@@ -437,7 +437,7 @@ class ContractControllerTest extends ControllerTestBase {
         mockMvc.perform(put("/api/contracts/{appName}/{appVersion}", appName, appVersion)
                         .header("Authorization", basicAuth("write", "secret"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(legacyMessageContractsDto)))
+                        .content(jsonMapper.writeValueAsString(legacyMessageContractsDto)))
                 .andExpect(status().isCreated()); // 201
     }
 

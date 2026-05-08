@@ -1,6 +1,5 @@
 package ch.admin.bit.jeap.messagecontract.messagetype.repository.github;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -12,6 +11,8 @@ import org.eclipse.jgit.errors.UnsupportedCredentialItem;
 import org.eclipse.jgit.transport.CredentialItem;
 import org.eclipse.jgit.transport.CredentialsProvider;
 import org.eclipse.jgit.transport.URIish;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -42,7 +43,7 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
     private final String appId;
     private final PrivateKey privateKey;
     private final HttpClient httpClient;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     /**
      * Creates a new GitHub App credentials provider.
@@ -55,7 +56,7 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
         this.privateKey = parsePrivateKey(privateKeyPem);
         this.httpClient = HttpClient.newBuilder().build();
 
-        this.objectMapper = new ObjectMapper();
+        this.jsonMapper = new JsonMapper();
     }
 
     @Override
@@ -100,10 +101,10 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
 
             // Set credentials
             for (CredentialItem item : items) {
-                if (item instanceof CredentialItem.Username) {
-                    ((CredentialItem.Username) item).setValue("x-access-token");
-                } else if (item instanceof CredentialItem.Password) {
-                    ((CredentialItem.Password) item).setValue(accessToken.toCharArray());
+                if (item instanceof CredentialItem.Username username) {
+                    username.setValue("x-access-token");
+                } else if (item instanceof CredentialItem.Password password) {
+                    password.setValue(accessToken.toCharArray());
                 } else {
                     throw new UnsupportedCredentialItem(uri, item.getPromptText());
                 }
@@ -134,7 +135,7 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == 200) {
-            JsonNode jsonNode = objectMapper.readTree(response.body());
+            JsonNode jsonNode = jsonMapper.readTree(response.body());
             return jsonNode.get("id").asLong();
         } else {
             log.warn("Failed to get installation ID: {} - {}", response.statusCode(), response.body());
@@ -156,8 +157,8 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() == 201) {
-            JsonNode jsonNode = objectMapper.readTree(response.body());
-            return jsonNode.get("token").asText();
+            JsonNode jsonNode = jsonMapper.readTree(response.body());
+            return jsonNode.get("token").asString();
         } else {
             log.warn("Failed to get installation access token: {} - {}", response.statusCode(), response.body());
         }

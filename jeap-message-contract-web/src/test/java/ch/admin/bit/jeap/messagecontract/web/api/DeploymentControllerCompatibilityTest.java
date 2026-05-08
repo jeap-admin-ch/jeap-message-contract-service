@@ -11,7 +11,6 @@ import ch.admin.bit.jeap.messagecontract.web.api.dto.CompatibilityMode;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.CreateMessageContractsDto;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.MessageContractRole;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.NewMessageContractDto;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Base64;
 import java.util.List;
@@ -38,7 +38,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
     @Autowired
     private JpaMessageContractRepository messageContractRepository;
     @Autowired
-    private ObjectMapper objectMapper;
+    private JsonMapper jsonMapper;
     private TestRegistryRepo testRegistryRepo;
 
     @BeforeEach
@@ -97,12 +97,12 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         MvcResult mvcConsumerResult = doCompatibilityGetRequest("test-consumer-app", "1.0", "prod")
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
-        CompatibilityCheckResult consumerResult =  objectMapper.readValue(mvcConsumerResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
+        CompatibilityCheckResult consumerResult =  jsonMapper.readValue(mvcConsumerResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         MvcResult mvcProducerResult = doCompatibilityGetRequest("test-producer-app", "2.0", "prod")
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
-        CompatibilityCheckResult producerResult =  objectMapper.readValue(mvcProducerResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
+        CompatibilityCheckResult producerResult =  jsonMapper.readValue(mvcProducerResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         // then: expect response to contain the expected compatible interactions
         assertThat(consumerResult.compatible()).isTrue();
@@ -145,7 +145,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
 
-        CompatibilityCheckResult producerResult =  objectMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
+        CompatibilityCheckResult producerResult =  jsonMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         // then: expect response to contain the expected compatible interactions
         assertThat(producerResult.compatible()).isTrue();
@@ -168,7 +168,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
                 .andExpect(status().is(HttpStatus.PRECONDITION_FAILED.value()))
                 .andReturn();
 
-        CompatibilityCheckResult producerResult =  objectMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
+        CompatibilityCheckResult producerResult =  jsonMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         // then: expect response to contain the expected interactions and incompatibilities
         assertThat(producerResult.compatible()).isFalse();
@@ -203,7 +203,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
 
-        CompatibilityCheckResult producerResult =  objectMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
+        CompatibilityCheckResult producerResult =  jsonMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         // then: expect response to signal compatibility without any found interactions
         assertThat(producerResult.compatible()).isTrue();
@@ -226,7 +226,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
 
-        CompatibilityCheckResult producerResult =  objectMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
+        CompatibilityCheckResult producerResult =  jsonMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         // then: expect response to signal compatibility without any found interactions
         assertThat(producerResult.compatible()).isTrue();
@@ -268,7 +268,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         mockMvc.perform(put("/api/contracts/{appName}/{appVersion}", appName, appVersion)
                         .header("Authorization", basicAuthHeader)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(messageContractsDto)))
+                        .content(jsonMapper.writeValueAsString(messageContractsDto)))
                 .andExpect(status().isCreated()); // 201
     }
 }
