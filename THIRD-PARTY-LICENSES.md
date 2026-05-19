@@ -163,7 +163,6 @@ Bouncy Castle Licence
 -------------------------------
 
  * Bouncy Castle Provider - [org.bouncycastle:bcprov-jdk18on](https://www.bouncycastle.org/download/bouncy-castle-java/)
- * Bouncy Castle Provider - [org.bouncycastle:bcprov-jdk18on](https://www.bouncycastle.org/download/bouncy-castle-java/)
 
 CC0 1.0 Universal
 -------------------------------
