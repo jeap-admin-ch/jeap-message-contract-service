@@ -42,11 +42,11 @@ public class MessageContractService {
         } else {
             log.debug("Delete contracts for appName={} appVersion={} and not for transactionId={}", appName, appVersion, transactionId);
             int deletedContracts = messageContractRepository.deleteByAppNameAndAppVersionNotSameTransactionId(appName, appVersion, transactionId);
-            entityManager.flush(); // flush delete before inserts
             log.debug("Deleted {} contracts before inserting {} new contracts", deletedContracts, messageContracts.size());
 
             removeDuplicateContracts(messageContractRepository.getContractsForAppVersionTransactionId(appName, appVersion, transactionId), messageContracts);
 
+            entityManager.flush(); // flush delete before inserts
             messageSchemaService.loadSchemas(messageContracts);
             messageContractRepository.saveContracts(messageContracts);
         }
