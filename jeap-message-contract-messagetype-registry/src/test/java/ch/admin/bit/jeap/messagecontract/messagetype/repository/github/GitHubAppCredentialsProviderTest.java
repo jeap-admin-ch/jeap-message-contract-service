@@ -1,5 +1,6 @@
 package ch.admin.bit.jeap.messagecontract.messagetype.repository.github;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.eclipse.jgit.transport.CredentialItem;
 import org.eclipse.jgit.transport.URIish;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +62,7 @@ class GitHubAppCredentialsProviderTest {
 
     @BeforeEach
     void setUp() {
-        provider = new GitHubAppCredentialsProvider(TEST_APP_ID, TEST_PRIVATE_KEY);
+        provider = new GitHubAppCredentialsProvider(TEST_APP_ID, TEST_PRIVATE_KEY, new SimpleMeterRegistry());
         ReflectionTestUtils.setField(provider, "httpClient", httpClient);
     }
 

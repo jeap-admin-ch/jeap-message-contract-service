@@ -7,6 +7,7 @@ import ch.admin.bit.jeap.messagecontract.persistence.model.CompatibilityMode;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContract;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole;
 import ch.admin.bit.jeap.messagecontract.test.TestRegistryRepo;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +35,7 @@ class MessageSchemaServiceTest {
 
     @BeforeEach
     void setup() {
-        messageSchemaService = new MessageSchemaService(new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties()));
+        messageSchemaService = new MessageSchemaService(new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry()));
     }
 
     @Test

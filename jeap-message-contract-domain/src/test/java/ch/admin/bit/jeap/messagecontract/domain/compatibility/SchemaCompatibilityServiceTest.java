@@ -4,6 +4,7 @@ import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepos
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepositoryFactory;
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepositoryProperties;
 import ch.admin.bit.jeap.messagecontract.test.TestRegistryRepo;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +36,7 @@ class SchemaCompatibilityServiceTest {
     @BeforeEach
     void setup() {
         compatibilityService = new SchemaCompatibilityService();
-        try (MessageTypeRepository repo = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties()).cloneRepository(repoUrl)) {
+        try (MessageTypeRepository repo = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry()).cloneRepository(repoUrl)) {
             String avroProtocolJson1 = repo.getSchemaAsAvroProtocolJson("master", null, "ActivZoneEnteredEvent", "1.0.0");
             String avroProtocolJson2 = repo.getSchemaAsAvroProtocolJson("master", null, "ActivZoneEnteredEvent", "2.0.0");
 

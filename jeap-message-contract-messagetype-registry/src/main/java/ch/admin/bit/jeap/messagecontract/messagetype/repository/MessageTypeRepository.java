@@ -12,6 +12,7 @@ import org.apache.commons.io.FilenameUtils;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.transport.CredentialsProvider;
+import org.eclipse.jgit.transport.RefSpec;
 
 import java.io.Closeable;
 import java.io.File;
@@ -73,19 +74,32 @@ public class MessageTypeRepository implements Closeable {
     }
 
     private void checkoutAt(String branch, String commitReference) throws GitAPIException {
+        long startNanos = System.nanoTime();
         if (commitReference != null && !HEAD.equalsIgnoreCase(commitReference)) {
-            log.info("Checking out commit {}", commitReference);
+            log.info("Fetching and checking out commit {}", commitReference);
+            git.fetch()
+                    .setCredentialsProvider(this.credentialsProvider)
+                    .setDepth(1)
+                    .setRefSpecs(new RefSpec(commitReference))
+                    .call();
             git.checkout()
                     .setForced(true)
                     .setName(commitReference)
                     .call();
-        } else {
-            log.info("Checking out branch {}", branch);
+        } else if (branch != null) {
+            log.info("Fetching and checking out branch {}", branch);
+            git.fetch()
+                    .setCredentialsProvider(this.credentialsProvider)
+                    .setDepth(1)
+                    .setRefSpecs(new RefSpec("+refs/heads/" + branch + ":refs/remotes/origin/" + branch))
+                    .call();
             git.checkout()
                     .setForced(true)
-                    .setName(branch)
+                    .setName("origin/" + branch)
                     .call();
         }
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+        log.info("Checkout completed successfully in {} ms (branch={}, commit={})", elapsedMs, branch, commitReference);
     }
 
     private List<EventDescriptor> getAllEventDescriptors() {
@@ -112,6 +126,8 @@ public class MessageTypeRepository implements Closeable {
                     .setURI(gitUri)
                     .setDirectory(tempDir)
                     .setCredentialsProvider(this.credentialsProvider)
+                    .setDepth(1)
+                    .setNoTags()
                     .call();
             this.gitRepoPath = tempDir;
         } catch (IOException | GitAPIException e) {

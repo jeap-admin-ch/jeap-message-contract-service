@@ -7,7 +7,7 @@
     <parent>
         <groupId>ch.admin.bit.jeap</groupId>
         <artifactId>jeap-message-contract-service</artifactId>
-        <version>5.0.2-alpha-springboot4-SNAPSHOT</version>
+        <version>5.1.0-alpha-springboot4-SNAPSHOT</version>
     </parent>
 
     <artifactId>jeap-message-contract-test</artifactId>

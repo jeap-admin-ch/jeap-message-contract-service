@@ -16,11 +16,9 @@ import java.nio.file.Path;
 
 public record TestRegistryRepo(Path repoDir, String revision, String url) {
 
-    public static final String EVENT_DIR = "descriptor/activ/event/activzoneenteredevent";
-    private static final String SYSTEM_COMMON_DIR = "descriptor/activ/_common";
-    private static final String ROOT_COMMON_DIR = "descriptor/_common";
+    static final String TEST_MAIL_COM = "test@mail.com";
 
-    public static TestRegistryRepo createMessageTypeRegistryRepository() throws Exception {
+    public static TestRegistryRepo createMessageTypeRegistryRepository() throws IOException {
         Path repoDir = Files.createTempDirectory("test-repo");
 
         // Init file-based repository, and copy/commit test files
@@ -30,7 +28,7 @@ public record TestRegistryRepo(Path repoDir, String revision, String url) {
             return new TestRegistryRepo(repoDir, commit.getId().name(), repoDir.toUri().toString());
         } catch (Exception ex) {
             FileUtils.forceDelete(repoDir.toFile());
-            throw ex;
+            throw new IOException("Delete failed", ex);
         }
     }
 
@@ -47,7 +45,7 @@ public record TestRegistryRepo(Path repoDir, String revision, String url) {
                 .addFilepattern(".")
                 .call();
         return newRepo.commit()
-                .setAuthor("test", "test@mail.com")
+                .setAuthor("test", TEST_MAIL_COM)
                 .setMessage("initial revision")
                 .call();
     }
@@ -67,7 +65,7 @@ public record TestRegistryRepo(Path repoDir, String revision, String url) {
         }
     }
 
-    public void addAndCommitFile(Path file, String content) throws Exception {
+    public void addAndCommitFile(Path file, String content) throws IOException, GitAPIException {
         Files.createDirectories(file.getParent());
         Files.writeString(file, content);
 
@@ -76,8 +74,48 @@ public record TestRegistryRepo(Path repoDir, String revision, String url) {
                     .addFilepattern(".")
                     .call();
             git.commit()
-                    .setAuthor("test", "test@mail.com")
+                    .setAuthor("test", TEST_MAIL_COM)
                     .setMessage("add file")
+                    .call();
+        }
+    }
+
+    public void addAndCommitFileOnBranch(String branch, Path file, String content) throws IOException, GitAPIException {
+        try (Git git = Git.open(repoDir.toFile())) {
+            String previousBranch = git.getRepository().getBranch();
+            git.checkout()
+                    .setName(branch)
+                    .call();
+            try {
+                Files.createDirectories(file.getParent());
+                Files.writeString(file, content);
+                git.add()
+                        .addFilepattern(".")
+                        .call();
+                git.commit()
+                        .setAuthor("test", TEST_MAIL_COM)
+                        .setMessage("add file on " + branch)
+                        .call();
+            } finally {
+                git.checkout()
+                        .setName(previousBranch)
+                        .call();
+            }
+        }
+    }
+
+    public void createBranch(String name) throws IOException, GitAPIException {
+        try (Git git = Git.open(repoDir.toFile())) {
+            git.branchCreate()
+                    .setName(name)
+                    .call();
+        }
+    }
+
+    public void tag(String name) throws IOException, GitAPIException {
+        try (Git git = Git.open(repoDir.toFile())) {
+            git.tag()
+                    .setName(name)
                     .call();
         }
     }

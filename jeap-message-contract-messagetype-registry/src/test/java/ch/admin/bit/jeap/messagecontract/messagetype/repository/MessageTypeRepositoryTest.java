@@ -2,6 +2,11 @@ package ch.admin.bit.jeap.messagecontract.messagetype.repository;
 
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.github.GitHubMessageTypeRepository;
 import ch.admin.bit.jeap.messagecontract.test.TestRegistryRepo;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevWalk;
 import org.junit.jupiter.api.*;
 
 import java.io.File;
@@ -12,6 +17,30 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MessageTypeRepositoryTest {
+
+    private static final String NEW_EVENT_DESCRIPTOR_JSON = """
+            {
+              "eventName": "NewEvent",
+              "description": "New event for tests",
+              "publishingSystem": "ACTIV",
+              "scope": "public",
+              "topic": "activ-new-event",
+              "compatibilityMode": "BACKWARD",
+              "versions": [
+                {"version": "1.0.0", "valueSchema": "NewEvent_v1.0.0.avdl"}
+              ],
+              "contracts": {"publishers": [], "subscribers": []}
+            }
+            """;
+
+    private static final String NEW_EVENT_AVDL = """
+            @namespace("ch.admin.test")
+            protocol NewEventProtocol {
+                record NewEvent {
+                    string attribute;
+                }
+            }
+            """;
 
     private TestRegistryRepo repo;
     private String repoUrl;
@@ -29,7 +58,7 @@ class MessageTypeRepositoryTest {
 
     @Test
     void getSchemaAsAvroProtocolJson() {
-        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties());
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
         try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
             String schemaJsonFromBranch1 = messageTypeRepository
                     .getSchemaAsAvroProtocolJson("master", null, "ActivZoneEnteredEvent", "1.0.0");
@@ -47,7 +76,7 @@ class MessageTypeRepositoryTest {
 
     @Test
     void getSchemaAsAvroProtocolJson_whenNotFound_thenExpectException() {
-        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties());
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
         try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
             assertThrows(MessageTypeRepoException.class, () -> messageTypeRepository
                     .getSchemaAsAvroProtocolJson("master", null, "DoesNotExist", "1.0.0"));
@@ -63,7 +92,7 @@ class MessageTypeRepositoryTest {
         Path badEventDescriptor = repo.repoDir().resolve("descriptor/activ/event/badevent/BadEvent.json");
         repo.addAndCommitFile(badEventDescriptor, "this is not really a json document");
 
-        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties());
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
         try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
 
             String schemaJsonFromBranch1 = messageTypeRepository
@@ -74,7 +103,7 @@ class MessageTypeRepositoryTest {
 
     @Test
     void clonesRepo_badUrl() {
-        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties());
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
         assertThrows(MessageTypeRepoException.class, () ->
                 factory.cloneRepository("file:///this-does-not-exist"));
     }
@@ -98,7 +127,7 @@ class MessageTypeRepositoryTest {
                 -----END RSA PRIVATE KEY-----
                 """));
         messageTypeRepositoryProperties.setRepositories(Collections.singletonList(properties));
-        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(messageTypeRepositoryProperties);
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(messageTypeRepositoryProperties, new SimpleMeterRegistry());
 
         try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
             assertInstanceOf(GitHubMessageTypeRepository.class, messageTypeRepository);
@@ -113,6 +142,113 @@ class MessageTypeRepositoryTest {
             String schemaJson2 = messageTypeRepository
                     .getSchemaAsAvroProtocolJson("master", null, "ActivZoneEnteredEvent", "2.0.0");
             assertTrue(schemaJson2.contains("JourneyActivationRequestReference"), "JourneyActivationRequestReference (only present in 2.0.0) not found");
+        }
+    }
+
+    @Test
+    void cloneIsShallow_onlyOneCommitInLocalRepo() throws Exception {
+        Path extra = repo.repoDir().resolve("descriptor/activ/event/extra/Extra.json");
+        repo.addAndCommitFile(extra, "{}");
+
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            try (Git localClone = Git.open(messageTypeRepository.gitRepoPath);
+                 RevWalk walk = new RevWalk(localClone.getRepository())) {
+                ObjectId head = localClone.getRepository().resolve("HEAD");
+                walk.markStart(walk.parseCommit(head));
+                int commitCount = 0;
+                for (RevCommit _ : walk) {
+                    commitCount++;
+                }
+                assertEquals(1, commitCount, "shallow clone should expose exactly one commit");
+            }
+        }
+    }
+
+    @Test
+    void cloneDoesNotFetchTags() throws Exception {
+        repo.tag("v1.0");
+
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            try (Git localClone = Git.open(messageTypeRepository.gitRepoPath)) {
+                assertTrue(localClone.tagList().call().isEmpty(), "no tags should be fetched");
+            }
+        }
+    }
+
+    @Test
+    void checkoutBranch_seesCommitPushedAfterClone() throws Exception {
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            Path newEventDir = repo.repoDir().resolve("descriptor/activ/event/newevent");
+            repo.addAndCommitFile(newEventDir.resolve("NewEvent_v1.0.0.avdl"), NEW_EVENT_AVDL);
+            repo.addAndCommitFile(newEventDir.resolve("NewEvent.json"), NEW_EVENT_DESCRIPTOR_JSON);
+
+            String schemaJson = messageTypeRepository
+                    .getSchemaAsAvroProtocolJson("master", null, "NewEvent", "1.0.0");
+
+            assertTrue(schemaJson.contains("NewEvent"),
+                    "new descriptor pushed after clone should be visible via lazy fetch");
+        }
+    }
+
+    @Test
+    void checkoutBranch_nonDefaultBranch() throws Exception {
+        repo.createBranch("feature");
+        Path newEventDir = repo.repoDir().resolve("descriptor/activ/event/newevent");
+        repo.addAndCommitFileOnBranch("feature", newEventDir.resolve("NewEvent_v1.0.0.avdl"), NEW_EVENT_AVDL);
+        repo.addAndCommitFileOnBranch("feature", newEventDir.resolve("NewEvent.json"), NEW_EVENT_DESCRIPTOR_JSON);
+
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            String schemaJson = messageTypeRepository
+                    .getSchemaAsAvroProtocolJson("feature", null, "NewEvent", "1.0.0");
+            assertTrue(schemaJson.contains("NewEvent"),
+                    "feature branch descriptor should be reachable via per-checkout branch fetch");
+
+            assertThrows(MessageTypeRepoException.class, () -> messageTypeRepository
+                    .getSchemaAsAvroProtocolJson("master", null, "NewEvent", "1.0.0"));
+        }
+    }
+
+    @Test
+    void checkoutCommit_olderCommitOutsideShallowDepth() throws Exception {
+        String originalSha = repo.revision();
+        repo.addAndCommitFile(repo.repoDir().resolve("descriptor/activ/event/extra/Extra.json"), "{}");
+        repo.addAndCommitFile(repo.repoDir().resolve("descriptor/activ/event/extra/Extra2.json"), "{}");
+
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            String schemaJson = messageTypeRepository
+                    .getSchemaAsAvroProtocolJson(null, originalSha, "ActivZoneEnteredEvent", "1.0.0");
+            assertTrue(schemaJson.contains("ZoneReference"),
+                    "original commit's schema should be reachable via fetch-by-SHA even when outside the initial shallow depth");
+        }
+    }
+
+    @Test
+    void checkoutAt_bothBranchAndCommitNull_noOpAndUsesClonedHead() {
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            String schemaJson = messageTypeRepository
+                    .getSchemaAsAvroProtocolJson(null, null, "ActivZoneEnteredEvent", "1.0.0");
+            assertTrue(schemaJson.contains("ZoneReference"),
+                    "should serve content already present in the shallow clone without an additional fetch");
+        }
+    }
+
+    @Test
+    void checkoutAt_headLiteralAsCommitReference_takesBranchPath() {
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            String upper = messageTypeRepository
+                    .getSchemaAsAvroProtocolJson("master", "HEAD", "ActivZoneEnteredEvent", "1.0.0");
+            assertTrue(upper.contains("ZoneReference"));
+
+            String lower = messageTypeRepository
+                    .getSchemaAsAvroProtocolJson("master", "head", "ActivZoneEnteredEvent", "1.0.0");
+            assertTrue(lower.contains("ZoneReference"));
         }
     }
 
@@ -134,7 +270,7 @@ class MessageTypeRepositoryTest {
                         ....
                         -----END RSA PRIVATE KEY-----"""));
         messageTypeRepositoryProperties.setRepositories(Collections.singletonList(properties));
-        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(messageTypeRepositoryProperties);
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(messageTypeRepositoryProperties, new SimpleMeterRegistry());
 
         try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(githubRepoUrl)) {
             assertInstanceOf(GitHubMessageTypeRepository.class, messageTypeRepository);

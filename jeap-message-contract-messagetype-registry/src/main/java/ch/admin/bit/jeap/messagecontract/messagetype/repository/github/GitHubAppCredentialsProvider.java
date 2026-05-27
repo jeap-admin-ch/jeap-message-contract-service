@@ -1,11 +1,14 @@
 package ch.admin.bit.jeap.messagecontract.messagetype.repository.github;
 
+import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.errors.UnsupportedCredentialItem;
 import org.eclipse.jgit.transport.CredentialItem;
@@ -44,19 +47,25 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
     private final PrivateKey privateKey;
     private final HttpClient httpClient;
     private final JsonMapper jsonMapper;
+    private final Timer getTimer;
 
     /**
      * Creates a new GitHub App credentials provider.
      *
      * @param appId GitHub App ID
      * @param privateKeyPem GitHub App private key in PEM format
+     * @param meterRegistry Micrometer registry used to record credential-fetch timings
      */
-    public GitHubAppCredentialsProvider(String appId, String privateKeyPem) {
+    public GitHubAppCredentialsProvider(String appId, String privateKeyPem, MeterRegistry meterRegistry) {
         this.appId = appId;
         this.privateKey = parsePrivateKey(privateKeyPem);
         this.httpClient = HttpClient.newBuilder().build();
 
         this.jsonMapper = new JsonMapper();
+        this.getTimer = Timer.builder("githubappcredentialsprovider.get.time")
+                .description("Time taken to obtain GitHub App installation access token")
+                .publishPercentileHistogram()
+                .register(meterRegistry);
     }
 
     @Override
@@ -77,6 +86,7 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
 
     @Override
     public boolean get(URIish uri, CredentialItem... items) throws UnsupportedCredentialItem {
+        Timer.Sample sample = Timer.start();
         try {
             // Extract owner/repo from URI
             String[] pathParts = uri.getPath().split("/");
@@ -115,6 +125,8 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
         } catch (Exception e) {
             log.warn(e.getMessage(), e);
             return false;
+        } finally {
+            sample.stop(getTimer);
         }
     }
 
@@ -165,7 +177,7 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
         return null;
     }
 
-    private String createAppJWT() throws Exception {
+    private String createAppJWT() throws JOSEException {
         JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
                 .type(JOSEObjectType.JWT)
                 .build();
