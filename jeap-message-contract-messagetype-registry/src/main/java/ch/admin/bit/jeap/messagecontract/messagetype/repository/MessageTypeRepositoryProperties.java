@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.util.List;
 
 @Data
-@ConfigurationProperties(prefix = "messages", ignoreUnknownFields = false)
+@ConfigurationProperties(prefix = "messages")
 @NoArgsConstructor
 @AllArgsConstructor
 @Slf4j

@@ -34,12 +34,13 @@
 
     <artifactId>jeap-message-contract-service</artifactId>
     <name>${project.groupId}:${project.artifactId}</name>
-    <version>6.0.0-SNAPSHOT</version>
+    <version>6.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <properties>
         <commons-io.version>2.22.0</commons-io.version>
         <nimbus-jose-jwt.version>10.9</nimbus-jose-jwt.version>
+        <jgit.version>7.6.0.202603022253-r</jgit.version>
         <maven.javadoc.skip>false</maven.javadoc.skip>
     </properties>
 
@@ -55,29 +56,39 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>org.eclipse.jgit</groupId>
+                <artifactId>org.eclipse.jgit</artifactId>
+                <version>${jgit.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.jgit</groupId>
+                <artifactId>org.eclipse.jgit.ssh.apache</artifactId>
+                <version>${jgit.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>ch.admin.bit.jeap</groupId>
                 <artifactId>jeap-message-contract-domain</artifactId>
-                <version>6.0.0-SNAPSHOT</version>
+                <version>6.1.0-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>ch.admin.bit.jeap</groupId>
                 <artifactId>jeap-message-contract-persistence</artifactId>
-                <version>6.0.0-SNAPSHOT</version>
+                <version>6.1.0-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>ch.admin.bit.jeap</groupId>
                 <artifactId>jeap-message-contract-messagetype-registry</artifactId>
-                <version>6.0.0-SNAPSHOT</version>
+                <version>6.1.0-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>ch.admin.bit.jeap</groupId>
                 <artifactId>jeap-message-contract-web</artifactId>
-                <version>6.0.0-SNAPSHOT</version>
+                <version>6.1.0-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>ch.admin.bit.jeap</groupId>
                 <artifactId>jeap-message-contract-test</artifactId>
-                <version>6.0.0-SNAPSHOT</version>
+                <version>6.1.0-SNAPSHOT</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

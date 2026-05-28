@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > - Spring Boot 3 maintenance (bug fixes, patches, and regular updates) continues on branch `release/springboot3`.
 > - The Spring Boot 4 upgrade process happens on the `master` branch, with the goal of releasing Spring Boot 4 compatible versions of all jeap components in a single major release.
 
+## [6.1.0] - 2026-05-28
+
+### Added
+
+- Local reference repository cache for configured message type registries. Refreshed on startup and on a
+  configurable cron (default `0 0 1 * * *`); per-request worktrees share its objects via JGit alternates and
+  copy refs directly from it, so requests against a fresh cache hit zero network round-trips. Configured via
+  `messages.repository-cache.{enabled,directory,refresh-cron}`.
+- Upgraded JGit from 7.4.0 to 7.6.0.
+
 ## [6.0.0] - 2026-05-28
 
 ### Changed

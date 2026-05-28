@@ -29,6 +29,9 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Map;
+
+import static ch.admin.bit.jeap.messagecontract.messagetype.repository.Elapsed.elapsedMs;
 
 /**
  * A JGit CredentialsProvider that uses GitHub App authentication.
@@ -36,6 +39,9 @@ import java.util.Date;
  */
 @Slf4j
 public class GitHubAppCredentialsProvider extends CredentialsProvider {
+
+    public static final String GITHUB_APP_ID = "GITHUB_APP_ID";
+    public static final String GITHUB_PRIVATE_KEY_PEM = "GITHUB_PRIVATE_KEY_PEM";
 
     static {
         java.security.Security.addProvider(
@@ -48,6 +54,28 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
     private final HttpClient httpClient;
     private final JsonMapper jsonMapper;
     private final Timer getTimer;
+
+    /**
+     * Builds a {@code GitHubAppCredentialsProvider} from the parameter map carried by
+     * {@code RepositoryProperties.parameters} for {@code GITHUB}-typed repositories. Both
+     * {@link #GITHUB_APP_ID} and {@link #GITHUB_PRIVATE_KEY_PEM} are required.
+     *
+     * @throws IllegalArgumentException if either parameter is missing
+     */
+    public static GitHubAppCredentialsProvider fromParameters(Map<String, String> parameters, MeterRegistry meterRegistry) {
+        requireParameter(parameters, GITHUB_APP_ID);
+        requireParameter(parameters, GITHUB_PRIVATE_KEY_PEM);
+        return new GitHubAppCredentialsProvider(
+                parameters.get(GITHUB_APP_ID),
+                parameters.get(GITHUB_PRIVATE_KEY_PEM),
+                meterRegistry);
+    }
+
+    private static void requireParameter(Map<String, String> parameters, String name) {
+        if (parameters == null || !parameters.containsKey(name)) {
+            throw new IllegalArgumentException("Missing required parameter '" + name + "' for GitHub repository");
+        }
+    }
 
     /**
      * Creates a new GitHub App credentials provider.
@@ -87,6 +115,7 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
     @Override
     public boolean get(URIish uri, CredentialItem... items) throws UnsupportedCredentialItem {
         Timer.Sample sample = Timer.start();
+        long getStartNanos = System.nanoTime();
         try {
             // Extract owner/repo from URI
             String[] pathParts = uri.getPath().split("/");
@@ -96,15 +125,22 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
 
             String owner = pathParts[1];
             String repo = pathParts[2].replace(".git", "");
+            log.debug("GitHubAppCredentials.get: owner={} repo={}", owner, repo);
 
             // Get installation ID for this repository
+            long installationIdStart = System.nanoTime();
             Long installationId = getInstallationId(owner, repo);
+            log.debug("GitHubAppCredentials.get: getInstallationId owner={} repo={} took {} ms (id={})",
+                    owner, repo, elapsedMs(installationIdStart), installationId);
             if (installationId == null) {
                 return false;
             }
 
             // Get or create installation access token
+            long tokenStart = System.nanoTime();
             String accessToken = getInstallationAccessToken(installationId);
+            log.debug("GitHubAppCredentials.get: getInstallationAccessToken installationId={} took {} ms",
+                    installationId, elapsedMs(tokenStart));
             if (accessToken == null) {
                 return false;
             }
@@ -120,10 +156,11 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
                 }
             }
 
+            log.info("GitHubAppCredentials.get: succeeded for {} in {} ms", uri, elapsedMs(getStartNanos));
             return true;
 
         } catch (Exception e) {
-            log.warn(e.getMessage(), e);
+            log.warn("GitHubAppCredentials.get: failed for {} after {} ms: {}", uri, elapsedMs(getStartNanos), e.getMessage(), e);
             return false;
         } finally {
             sample.stop(getTimer);

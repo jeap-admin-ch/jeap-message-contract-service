@@ -9,21 +9,7 @@ public class GitHubMessageTypeRepository extends MessageTypeRepository {
 
     public GitHubMessageTypeRepository(String gitUri, Map<String, String> parameters, MeterRegistry meterRegistry) {
         super(gitUri);
-        assertRequiredParameters(parameters);
-        super.setCredentialsProvider(new GitHubAppCredentialsProvider(
-                parameters.get("GITHUB_APP_ID"),
-                parameters.get("GITHUB_PRIVATE_KEY_PEM"),
-                meterRegistry
-        ));
-    }
-
-    private void assertRequiredParameters(Map<String, String> parameters) {
-        if (parameters == null || !parameters.containsKey("GITHUB_APP_ID")) {
-            throw new IllegalArgumentException("Missing required parameter 'GITHUB_APP_ID' for GitHub repository");
-        }
-        if (!parameters.containsKey("GITHUB_PRIVATE_KEY_PEM")) {
-            throw new IllegalArgumentException("Missing required parameter 'GITHUB_PRIVATE_KEY_PEM' for GitHub repository");
-        }
+        super.setCredentialsProvider(GitHubAppCredentialsProvider.fromParameters(parameters, meterRegistry));
     }
 
 }

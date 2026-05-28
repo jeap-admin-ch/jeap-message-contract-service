@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+import static ch.admin.bit.jeap.messagecontract.messagetype.repository.Elapsed.elapsedMs;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -37,20 +39,25 @@ public class MessageContractService {
     @Transactional
     @Timed(value = "savecontracts.time", description = "Time taken to save a contract including its schema", histogram = true)
     public void saveContracts(String appName, String appVersion, String transactionId, List<MessageContract> messageContracts) {
+        long startNanos = System.nanoTime();
+        log.info("Saving {} contracts for {}:{} transactionId={}", messageContracts.size(), appName, appVersion, transactionId);
         if (transactionId == null) {
             saveContracts(appName, appVersion, messageContracts);
         } else {
             log.debug("Delete contracts for appName={} appVersion={} and not for transactionId={}", appName, appVersion, transactionId);
+            long deleteStart = System.nanoTime();
             int deletedContracts = messageContractRepository.deleteByAppNameAndAppVersionNotSameTransactionId(appName, appVersion, transactionId);
-            log.debug("Deleted {} contracts before inserting {} new contracts", deletedContracts, messageContracts.size());
-
             removeDuplicateContracts(messageContractRepository.getContractsForAppVersionTransactionId(appName, appVersion, transactionId), messageContracts);
-
             entityManager.flush(); // flush delete before inserts
-            messageSchemaService.loadSchemas(messageContracts);
-            messageContractRepository.saveContracts(messageContracts);
-        }
+            log.debug("Deleted {} contracts in {}ms before inserting {} new contracts", deletedContracts, elapsedMs(deleteStart), messageContracts.size());
 
+            messageSchemaService.loadSchemas(messageContracts);
+
+            long saveStart = System.nanoTime();
+            messageContractRepository.saveContracts(messageContracts);
+            log.debug("Persisted {} contracts in {} ms", messageContracts.size(), elapsedMs(saveStart));
+        }
+        log.info("Saved contracts for {}:{} transactionId={} in {}ms", appName, appVersion, transactionId, elapsedMs(startNanos));
     }
 
     private void removeDuplicateContracts(List<MessageContract> contractsInDb, List<MessageContract> messageContracts) {
@@ -75,11 +82,16 @@ public class MessageContractService {
     }
 
     private void saveContracts(String appName, String appVersion, List<MessageContract> messageContracts) {
+        long deleteStart = System.nanoTime();
         int deletedContracts = messageContractRepository.deleteContractsForAppVersion(appName, appVersion);
         entityManager.flush(); // flush delete before inserts
-        log.debug("Deleted {} contracts before inserting {} new contracts", deletedContracts, messageContracts.size());
+        log.info("Deleted {} contracts (no-tx-id) in {} ms before inserting {}", deletedContracts, elapsedMs(deleteStart), messageContracts.size());
+
         messageSchemaService.loadSchemas(messageContracts);
+
+        long saveStart = System.nanoTime();
         messageContractRepository.saveContracts(messageContracts);
+        log.info("Persisted {} contracts (no-tx-id) in {} ms", messageContracts.size(), elapsedMs(saveStart));
     }
 
     @Transactional
