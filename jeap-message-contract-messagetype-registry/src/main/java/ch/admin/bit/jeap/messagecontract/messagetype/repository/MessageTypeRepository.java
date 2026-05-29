@@ -94,6 +94,15 @@ public class MessageTypeRepository implements Closeable {
      */
     @Setter
     protected Runnable cacheMissRefresh;
+    /**
+     * Optional callback invoked before resolving a branch-only checkout (no commit SHA supplied) so that
+     * an upstream branch tip that moved since the last cache refresh is picked up. Bound by
+     * {@link MessageTypeRepositoryFactory} to
+     * {@link MessageTypeRepositoryReferenceCache#refreshIfStale(String)} - debounced so a batch of
+     * uploads pays at most one upstream round-trip.
+     */
+    @Setter
+    protected Runnable eagerCacheRefresh;
     File gitRepoPath;
     private Git git;
 
@@ -192,6 +201,12 @@ public class MessageTypeRepository implements Closeable {
     }
 
     private void cacheCheckoutBranch(String branch) throws GitAPIException {
+        // Branch-only checkout has no caller-supplied SHA to anchor on, so refresh the cache first to pick
+        // up an upstream branch tip that may have moved since the last refresh. The eager-refresh callback
+        // is debounced inside the cache so a batch of uploads pays at most one upstream round-trip.
+        if (eagerCacheRefresh != null) {
+            eagerCacheRefresh.run();
+        }
         String localRef = Constants.R_HEADS + branch;
         long resolveStart = System.nanoTime();
         ObjectId branchSha = resolveBranchInCache(branch, localRef);

@@ -225,10 +225,60 @@ class MessageTypeRepositoryReferenceCacheTest {
         assertThat(afterFetch.name()).isEqualTo(newCommitSha);
     }
 
+    @Test
+    void factory_branchCheckout_picksUpMovedUpstreamTip() throws Exception {
+        MessageTypeRepositoryReferenceCache cache = newEnabledCache(repoUrl);
+        cache.refreshAll();
+        File cacheDir = cache.getCacheRepoDir(repoUrl).orElseThrow();
+        ObjectId cachedMasterBefore = readMasterSha(cacheDir);
+
+        // Move the upstream master tip after the cache was last refreshed.
+        Path newDescriptor = repo.repoDir().resolve("descriptor/activ/event/movedbranchevent/MovedBranchEvent.json");
+        repo.addAndCommitFile(newDescriptor, "{\"messageTypeName\":\"MovedBranchEvent\"}");
+        ObjectId upstreamMasterAfter;
+        try (Git upstream = Git.open(repo.repoDir().toFile())) {
+            upstreamMasterAfter = upstream.getRepository().resolve("refs/heads/master");
+        }
+        assertThat(upstreamMasterAfter).isNotEqualTo(cachedMasterBefore);
+
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(
+                propertiesFor(repoUrl), new SimpleMeterRegistry(), cache);
+
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            // Branch-only request must trigger the eager cache refresh; otherwise we'd resolve to the
+            // stale cachedMasterBefore SHA.
+            messageTypeRepository.getSchemaAsAvroProtocolJson("master", null, "ActivZoneEnteredEvent", "1.0.0");
+        }
+
+        ObjectId cachedMasterAfter = readMasterSha(cacheDir);
+        assertThat(cachedMasterAfter.name()).isEqualTo(upstreamMasterAfter.name());
+    }
+
+    @Test
+    void refreshIfStale_debouncesConcurrentCallsWithinWindow() {
+        MessageTypeRepositoryReferenceCache cache = newEnabledCache(repoUrl, 60_000L);
+        cache.refreshAll();
+        File cacheDir = cache.getCacheRepoDir(repoUrl).orElseThrow();
+        long lastModifiedBefore = new File(cacheDir, "HEAD").lastModified();
+
+        // Multiple eager refreshes inside the debounce window should be no-ops; cache stays untouched.
+        cache.refreshIfStale(repoUrl);
+        cache.refreshIfStale(repoUrl);
+        cache.refreshIfStale(repoUrl);
+
+        long lastModifiedAfter = new File(cacheDir, "HEAD").lastModified();
+        assertThat(lastModifiedAfter).isEqualTo(lastModifiedBefore);
+    }
+
     private MessageTypeRepositoryReferenceCache newEnabledCache(String knownUri) {
+        return newEnabledCache(knownUri, 0L);
+    }
+
+    private MessageTypeRepositoryReferenceCache newEnabledCache(String knownUri, long debounceMillis) {
         MessageTypeRepositoryCacheProperties cacheProps = new MessageTypeRepositoryCacheProperties();
         cacheProps.setEnabled(true);
         cacheProps.setDirectory(cacheRoot.toString());
+        cacheProps.setRefreshDebounceMillis(debounceMillis);
         return new MessageTypeRepositoryReferenceCache(
                 cacheProps, propertiesFor(knownUri), new SimpleMeterRegistry());
     }

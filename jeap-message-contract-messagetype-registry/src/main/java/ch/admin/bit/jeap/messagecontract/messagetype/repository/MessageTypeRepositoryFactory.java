@@ -50,6 +50,7 @@ public class MessageTypeRepositoryFactory {
             if (cacheRepoDir.isPresent()) {
                 messageTypeRepository.setReferenceCacheDir(cacheRepoDir.get());
                 messageTypeRepository.setCacheMissRefresh(() -> referenceCache.refreshOne(gitUri));
+                messageTypeRepository.setEagerCacheRefresh(() -> referenceCache.refreshIfStale(gitUri));
                 cacheHit = true;
             }
         }

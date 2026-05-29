@@ -17,6 +17,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static ch.admin.bit.jeap.messagecontract.messagetype.repository.Elapsed.elapsedMs;
@@ -50,10 +51,12 @@ import static ch.admin.bit.jeap.messagecontract.messagetype.repository.Elapsed.e
  *       or missing entry just falls back to the existing direct-clone path in {@link MessageTypeRepository}.</li>
  * </ul>
  * <p>
- * <b>Stale-cache handling.</b> {@link MessageTypeRepository#checkoutAt} calls
- * {@link #refreshOne(String)} on fetch/checkout failure (typically when a caller uploads a contract for a
- * commit pushed after the last refresh). One real upstream round-trip is paid to update the cache; all
- * subsequent requests in the same batch then hit the fresh cache locally.
+ * <b>Stale-cache handling.</b> {@link #refreshOne(String)} is called both reactively
+ * ({@link MessageTypeRepository#checkoutAt} on fetch/checkout failure for an unknown commit/branch) and
+ * eagerly (before resolving a branch-only contract upload, so a moved branch tip is picked up).
+ * {@code refreshOne} debounces calls per URI via
+ * {@link MessageTypeRepositoryCacheProperties#getRefreshDebounceMillis()}: a batch of uploads pays at
+ * most one upstream round-trip even though every branch request triggers it.
  * <p>
  * GitHub-typed repositories use the same {@link GitHubAppCredentialsProvider} as the per-request clone path,
  * sharing the configured {@link MeterRegistry}.
@@ -66,6 +69,11 @@ public class MessageTypeRepositoryReferenceCache {
     private final MessageTypeRepositoryProperties repositoryProperties;
     private final MeterRegistry meterRegistry;
     private final ReentrantLock refreshLock = new ReentrantLock();
+    /**
+     * Tracks the {@link System#nanoTime()} at which the last successful refresh completed for each URI.
+     * Used by {@link #refreshOne(String)} to debounce concurrent eager refreshes.
+     */
+    private final ConcurrentHashMap<String, Long> lastRefreshNanos = new ConcurrentHashMap<>();
 
     public MessageTypeRepositoryReferenceCache(MessageTypeRepositoryCacheProperties cacheProperties,
                                                MessageTypeRepositoryProperties repositoryProperties,
@@ -137,16 +145,28 @@ public class MessageTypeRepositoryReferenceCache {
     }
 
     /**
-     * Refreshes a single configured cache entry. Used by {@link MessageTypeRepository}'s stale-cache retry:
-     * when a per-checkout fetch+checkout against the local cache fails (typically because the caller is
-     * referencing a commit pushed after the last refresh), this method is invoked to pull the missing
-     * objects from the real upstream so the retry can succeed.
-     * <p>
-     * Uses blocking {@link ReentrantLock#lock()} (not {@code tryLock}) so concurrent callers wait for the
-     * in-progress refresh - whoever wins the race picks up the fresh refs once the lock releases. No-op
-     * when the cache is disabled or {@code gitUri} is not a configured repository.
+     * Refreshes a single configured cache entry, unconditionally. Used by
+     * {@link MessageTypeRepository#checkoutAt}'s stale-cache retry when a requested commit/branch isn't in
+     * the cache - the caller already paid the cost of a failed lookup, so we must hit upstream regardless
+     * of the debounce window. Blocks on {@link #refreshLock} so only one upstream fetch runs at a time.
+     * No-op when the cache is disabled or {@code gitUri} is not a configured repository.
      */
     public void refreshOne(String gitUri) {
+        refreshOne(gitUri, false);
+    }
+
+    /**
+     * Refreshes a single configured cache entry only if the previous successful refresh ended longer ago
+     * than {@link MessageTypeRepositoryCacheProperties#getRefreshDebounceMillis()}. Used as the eager
+     * pre-checkout refresh for branch-only contract uploads, so a moved branch tip is picked up while a
+     * batch of concurrent uploads still pays at most one upstream round-trip. Implemented as a debounced
+     * variant of {@link #refreshOne(String)}.
+     */
+    public void refreshIfStale(String gitUri) {
+        refreshOne(gitUri, true);
+    }
+
+    private void refreshOne(String gitUri, boolean respectDebounce) {
         if (!isEnabled()) {
             return;
         }
@@ -161,10 +181,18 @@ public class MessageTypeRepositoryReferenceCache {
             log.debug("refreshOne: gitUri={} is not a configured repository; skipping", gitUri);
             return;
         }
+        if (respectDebounce && withinDebounceWindow(gitUri)) {
+            log.debug("refreshOne: gitUri={} within debounce window; skipping (debounceMs={})", gitUri, cacheProperties.getRefreshDebounceMillis());
+            return;
+        }
         long lockWaitStart = System.nanoTime();
         refreshLock.lock();
         long lockWaitMs = elapsedMs(lockWaitStart);
         try {
+            if (respectDebounce && withinDebounceWindow(gitUri)) {
+                log.debug("refreshOne: gitUri={} debounced after acquiring lock (lockWaitMs={})", gitUri, lockWaitMs);
+                return;
+            }
             File cacheRoot = new File(cacheProperties.getDirectory());
             if (!cacheRoot.exists() && !cacheRoot.mkdirs()) {
                 log.error("Failed to create reference repository cache root directory {}", cacheRoot);
@@ -178,12 +206,22 @@ public class MessageTypeRepositoryReferenceCache {
         }
     }
 
+    private boolean withinDebounceWindow(String gitUri) {
+        Long last = lastRefreshNanos.get(gitUri);
+        if (last == null) {
+            return false;
+        }
+        long debounceNanos = cacheProperties.getRefreshDebounceMillis() * 1_000_000L;
+        return System.nanoTime() - last < debounceNanos;
+    }
+
     private void refresh(RepositoryProperties repo) {
         File cacheDir = cacheDirFor(repo.getUri());
         CredentialsProvider credentials = createCredentialsProvider(repo);
         long startNanos = System.nanoTime();
         try {
             String operation = runRefresh(repo, cacheDir, credentials);
+            lastRefreshNanos.put(repo.getUri(), System.nanoTime());
             log.info("refresh: {} for {} done in {} ms", operation, repo.getUri(), elapsedMs(startNanos));
         } catch (Exception ex) {
             log.error("Failed to refresh reference repository cache for {} after {} ms", repo.getUri(), elapsedMs(startNanos), ex);
