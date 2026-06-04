@@ -39,7 +39,7 @@
 
     <properties>
         <commons-io.version>2.22.0</commons-io.version>
-        <nimbus-jose-jwt.version>10.9</nimbus-jose-jwt.version>
+        <nimbus-jose-jwt.version>10.9.1</nimbus-jose-jwt.version>
         <jgit.version>7.6.0.202603022253-r</jgit.version>
         <maven.javadoc.skip>false</maven.javadoc.skip>
     </properties>
