@@ -18,20 +18,34 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ContextConfiguration(classes = PersistenceConfiguration.class)
 class MessageContractRepositoryTest {
 
-    @Autowired
-    private MessageContractRepository messageContractRepository;
+    private static final String TEST_TYPE = "TestType";
+    private static final String COMMIT_HASH = "commitHash";
+    private static final String TYPE1 = "type1";
+    private static final String TYPE2 = "type2";
+    private static final String TYPE3 = "type3";
+    private static final String MASTER = "master";
+    private static final String VERSION_1_0_0 = "1.0.0";
+    private static final String TOPIC = "topic";
+    private static final String TRANSACTION_ID = "transactionId";
+
+    private final MessageContractRepository messageContractRepository;
+    private final JpaMessageContractRepository jpaMessageContractRepository;
+    private final DeploymentRepository deploymentRepository;
 
     @Autowired
-    private JpaMessageContractRepository jpaMessageContractRepository;
-
-    @Autowired
-    private DeploymentRepository deploymentRepository;
+    MessageContractRepositoryTest(MessageContractRepository messageContractRepository,
+                                   JpaMessageContractRepository jpaMessageContractRepository,
+                                   DeploymentRepository deploymentRepository) {
+        this.messageContractRepository = messageContractRepository;
+        this.jpaMessageContractRepository = jpaMessageContractRepository;
+        this.deploymentRepository = deploymentRepository;
+    }
 
     @Test
     void saveContracts() {
         List<MessageContract> contracts = List.of(
-                createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null),
-                createContract("app2", "v1", null, "master", MessageContractRole.PRODUCER, "testKey"));
+                createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null),
+                createContract("app2", "v1", null, MASTER, MessageContractRole.PRODUCER, "testKey"));
 
         messageContractRepository.saveContracts(contracts);
         assertThat(jpaMessageContractRepository.findByDeletedFalse())
@@ -47,9 +61,9 @@ class MessageContractRepositoryTest {
     @Test
     void getContractsForAppVersion() {
         List<MessageContract> contracts = List.of(
-                createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null),
-                createContract("app2", "v1", null, "master", MessageContractRole.PRODUCER, null),
-                createContract("app2", "v2", null, "master", MessageContractRole.PRODUCER, null));
+                createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null),
+                createContract("app2", "v1", null, MASTER, MessageContractRole.PRODUCER, null),
+                createContract("app2", "v2", null, MASTER, MessageContractRole.PRODUCER, null));
         messageContractRepository.saveContracts(contracts);
 
         List<MessageContract> app2v1Contracts = messageContractRepository.getContractsForAppVersion("app2", "v1");
@@ -60,28 +74,28 @@ class MessageContractRepositoryTest {
     @Test
     void distinctAppNameByRoleForMessageTypeOnTopic() {
         List<MessageContract> contracts = List.of(
-                createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null),
-                createContract("app2", "v1", null, "master", MessageContractRole.PRODUCER, null),
-                createContract("app2", "v2", null, "master", MessageContractRole.PRODUCER, null));
+                createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null),
+                createContract("app2", "v1", null, MASTER, MessageContractRole.PRODUCER, null),
+                createContract("app2", "v2", null, MASTER, MessageContractRole.PRODUCER, null));
         messageContractRepository.saveContracts(contracts);
 
         Set<String> app1 = messageContractRepository.distinctAppNameByRoleForMessageTypeOnTopic(
-                "TestType", "topic", MessageContractRole.CONSUMER);
+                TEST_TYPE, TOPIC, MessageContractRole.CONSUMER);
 
         assertThat(app1).containsExactly("app1");
     }
 
     @Test
     void getContractsForAppVersionAndMessageTypeOnTopicWithRole() {
-        MessageContract expectedContract = createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null);
+        MessageContract expectedContract = createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null);
         List<MessageContract> contracts = List.of(
                 expectedContract,
-                createContract("app1", "v1", "commitHash", null, MessageContractRole.PRODUCER, null),
-                createContract("app2", "v1", null, "master", MessageContractRole.CONSUMER, null));
+                createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.PRODUCER, null),
+                createContract("app2", "v1", null, MASTER, MessageContractRole.CONSUMER, null));
         messageContractRepository.saveContracts(contracts);
 
         List<MessageContract> contract = messageContractRepository.getContractsForAppVersionAndMessageTypeOnTopicWithRole(
-                "app1", "v1", "TestType", "topic", MessageContractRole.CONSUMER);
+                "app1", "v1", TEST_TYPE, TOPIC, MessageContractRole.CONSUMER);
 
         assertThat(contract).containsExactly(expectedContract);
     }
@@ -89,12 +103,12 @@ class MessageContractRepositoryTest {
     @Test
     void deleteContract() {
         List<MessageContract> contracts = List.of(
-                createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null),
-                createContract("app2", "v1", null, "master", MessageContractRole.PRODUCER, null));
+                createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null),
+                createContract("app2", "v1", null, MASTER, MessageContractRole.PRODUCER, null));
 
         messageContractRepository.saveContracts(contracts);
         messageContractRepository.deleteContract(
-                "app1", "v1", "TestType", "1.0.0", "topic", MessageContractRole.CONSUMER);
+                "app1", "v1", TEST_TYPE, VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER);
 
         assertThat(jpaMessageContractRepository.findByDeletedFalse())
                 .hasSize(1);
@@ -105,9 +119,9 @@ class MessageContractRepositoryTest {
     @Test
     void deleteContractsForAppVersion() {
         List<MessageContract> contracts = List.of(
-                createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null),
-                createContract("app1", "v2", "commitHash", null, MessageContractRole.CONSUMER, null),
-                createContract("app2", "v1", null, "master", MessageContractRole.PRODUCER, null));
+                createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null),
+                createContract("app1", "v2", COMMIT_HASH, null, MessageContractRole.CONSUMER, null),
+                createContract("app2", "v1", null, MASTER, MessageContractRole.PRODUCER, null));
         messageContractRepository.saveContracts(contracts);
 
         messageContractRepository.deleteContractsForAppVersion("app1", "v1");
@@ -124,12 +138,12 @@ class MessageContractRepositoryTest {
     @Test
     void deleteContractsForAppVersionWithTransactionId() {
         List<MessageContract> contracts = List.of(
-                createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null),
-                createContract("app1", "v2", "commitHash", null, MessageContractRole.CONSUMER, null),
-                createContract("app2", "v1", null, "master", MessageContractRole.PRODUCER, null));
+                createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null),
+                createContract("app1", "v2", COMMIT_HASH, null, MessageContractRole.CONSUMER, null),
+                createContract("app2", "v1", null, MASTER, MessageContractRole.PRODUCER, null));
         messageContractRepository.saveContracts(contracts);
 
-        messageContractRepository.deleteByAppNameAndAppVersionNotSameTransactionId("app1", "v1", "transactionId");
+        messageContractRepository.deleteByAppNameAndAppVersionNotSameTransactionId("app1", "v1", TRANSACTION_ID);
 
         assertThat(jpaMessageContractRepository.findByDeletedFalse()).hasSize(2);
         assertThat(jpaMessageContractRepository.findByDeletedFalse().get(0).getAppName())
@@ -143,10 +157,10 @@ class MessageContractRepositoryTest {
     @Test
     void deleteContractsForAppVersionWithMultipleTransactionId() {
         List<MessageContract> contracts = List.of(
-                createContract("app1", "v1", "1", null, MessageContractRole.CONSUMER, null, "type1", "tx1"),
-                createContract("app1", "v1", "1", null, MessageContractRole.PRODUCER, null, "type3", null),
-                createContract("app1", "v1", "2", null, MessageContractRole.CONSUMER, null, "type2", "tx1"),
-                createContract("app1", "v1", "3", null, MessageContractRole.PRODUCER, null, "type1", "tx2"));
+                createContract("app1", "v1", "1", null, MessageContractRole.CONSUMER, null, TYPE1, "tx1"),
+                createContract("app1", "v1", "1", null, MessageContractRole.PRODUCER, null, TYPE3, null),
+                createContract("app1", "v1", "2", null, MessageContractRole.CONSUMER, null, TYPE2, "tx1"),
+                createContract("app1", "v1", "3", null, MessageContractRole.PRODUCER, null, TYPE1, "tx2"));
         messageContractRepository.saveContracts(contracts);
 
         messageContractRepository.deleteByAppNameAndAppVersionNotSameTransactionId("app1", "v1", "tx2");
@@ -163,10 +177,10 @@ class MessageContractRepositoryTest {
     @Test
     void deleteContractsForAppVersionWithNewTransactionId() {
         List<MessageContract> contracts = List.of(
-                createContract("app1", "v1", "1", null, MessageContractRole.CONSUMER, null, "type1", "tx1"),
-                createContract("app1", "v1", "1", null, MessageContractRole.PRODUCER, null, "type3", null),
-                createContract("app1", "v1", "2", null, MessageContractRole.CONSUMER, null, "type2", "tx1"),
-                createContract("app1", "v1", "3", null, MessageContractRole.PRODUCER, null, "type1", "tx2"));
+                createContract("app1", "v1", "1", null, MessageContractRole.CONSUMER, null, TYPE1, "tx1"),
+                createContract("app1", "v1", "1", null, MessageContractRole.PRODUCER, null, TYPE3, null),
+                createContract("app1", "v1", "2", null, MessageContractRole.CONSUMER, null, TYPE2, "tx1"),
+                createContract("app1", "v1", "3", null, MessageContractRole.PRODUCER, null, TYPE1, "tx2"));
         messageContractRepository.saveContracts(contracts);
 
         messageContractRepository.deleteByAppNameAndAppVersionNotSameTransactionId("app1", "v1", "tx3");
@@ -177,10 +191,10 @@ class MessageContractRepositoryTest {
     @Test
     void deleteContractsForAppVersionWithoutTransactionId() {
         List<MessageContract> contracts = List.of(
-                createContract("app1", "v1", "1", null, MessageContractRole.CONSUMER, null, "type1", "tx1"),
-                createContract("app1", "v1", "1", null, MessageContractRole.PRODUCER, null, "type3", null),
-                createContract("app1", "v1", "2", null, MessageContractRole.CONSUMER, null, "type2", "tx1"),
-                createContract("app1", "v1", "3", null, MessageContractRole.PRODUCER, null, "type1", "tx2"));
+                createContract("app1", "v1", "1", null, MessageContractRole.CONSUMER, null, TYPE1, "tx1"),
+                createContract("app1", "v1", "1", null, MessageContractRole.PRODUCER, null, TYPE3, null),
+                createContract("app1", "v1", "2", null, MessageContractRole.CONSUMER, null, TYPE2, "tx1"),
+                createContract("app1", "v1", "3", null, MessageContractRole.PRODUCER, null, TYPE1, "tx2"));
         messageContractRepository.saveContracts(contracts);
 
         messageContractRepository.deleteContractsForAppVersion("app1", "v1");
@@ -191,9 +205,9 @@ class MessageContractRepositoryTest {
     @Test
     void existsByAppNameAndAppVersion() {
         List<MessageContract> contracts = List.of(
-                createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null),
-                createContract("app1", "v2", "commitHash", null, MessageContractRole.CONSUMER, null),
-                createContract("app2", "v1", null, "master", MessageContractRole.PRODUCER, null));
+                createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null),
+                createContract("app1", "v2", COMMIT_HASH, null, MessageContractRole.CONSUMER, null),
+                createContract("app2", "v1", null, MASTER, MessageContractRole.PRODUCER, null));
         messageContractRepository.saveContracts(contracts);
 
 
@@ -238,7 +252,7 @@ class MessageContractRepositoryTest {
     }
 
     @Test
-    void findMessageContractInfosByEnvironment_onlyLatest() {
+    void findMessageContractInfosByEnvironmentOnlyLatest() {
         // given
         MessageContract app1v1 = createContract("app1", "v1", null, null, MessageContractRole.CONSUMER, null);
         MessageContract app2v1 = createContract("app2", "v1", null, null, MessageContractRole.PRODUCER, null);
@@ -263,7 +277,7 @@ class MessageContractRepositoryTest {
     }
 
     @Test
-    void findMessageContractInfosByEnvironment_omitDeleted() {
+    void findMessageContractInfosByEnvironmentOmitDeleted() {
         // given
         MessageContract app1v1 = createContract("app1", "v1", null, null, MessageContractRole.CONSUMER, null);
         MessageContract app2v1 = createContract("app2", "v1", null, null, MessageContractRole.PRODUCER, null);
@@ -274,7 +288,7 @@ class MessageContractRepositoryTest {
         deploymentRepository.save(Deployment.builder().appName("app2").appVersion("v1").environment("prod").build());
 
         // when & then
-        messageContractRepository.deleteContract("app1", "v1", "TestType", "1.0.0", "topic", MessageContractRole.CONSUMER);
+        messageContractRepository.deleteContract("app1", "v1", TEST_TYPE, VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER);
         List<MessageContractInfo> prod = messageContractRepository.findMessageContractInfosByEnvironment("prod");
         assertThat(prod)
                 .satisfiesExactly(
@@ -284,72 +298,73 @@ class MessageContractRepositoryTest {
     }
 
     @Test
-    void existsByAppNameAndAppVersion_contractDeleted_contractNotReturned() {
+    void existsByAppNameAndAppVersionContractDeletedContractNotReturned() {
         //given
-        List<MessageContract> contracts = List.of(createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null));
+        List<MessageContract> contracts = List.of(createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null));
         messageContractRepository.saveContracts(contracts);
         assertThat(messageContractRepository.existsByAppNameAndAppVersion("app1", "v1")).isTrue();
 
         //when
-        messageContractRepository.deleteContract("app1", "v1", "TestType", "1.0.0", "topic", MessageContractRole.CONSUMER);
+        messageContractRepository.deleteContract("app1", "v1", TEST_TYPE, VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER);
 
         //then
         assertThat(messageContractRepository.existsByAppNameAndAppVersion("app1", "v1")).isFalse();
     }
 
     @Test
-    void getContractsForAppVersion_contractDeleted_contractNotReturned() {
+    void getContractsForAppVersionContractDeletedContractNotReturned() {
         //given
-        List<MessageContract> contracts = List.of(createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null));
+        List<MessageContract> contracts = List.of(createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null));
         messageContractRepository.saveContracts(contracts);
         assertThat(messageContractRepository.getContractsForAppVersion("app1", "v1")).hasSize(1);
 
         //when
-        messageContractRepository.deleteContract("app1", "v1", "TestType", "1.0.0", "topic", MessageContractRole.CONSUMER);
+        messageContractRepository.deleteContract("app1", "v1", TEST_TYPE, VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER);
 
         //then
         assertThat(messageContractRepository.getContractsForAppVersion("app1", "v1")).isEmpty();
     }
 
     @Test
-    void distinctAppNameByRoleForMessageTypeOnTopic_contractDeleted_contractNotReturned() {
+    void distinctAppNameByRoleForMessageTypeOnTopicContractDeletedContractNotReturned() {
         //given
-        List<MessageContract> contracts = List.of(createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null));
+        List<MessageContract> contracts = List.of(createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null));
         messageContractRepository.saveContracts(contracts);
-        assertThat(messageContractRepository.distinctAppNameByRoleForMessageTypeOnTopic("TestType", "topic", MessageContractRole.CONSUMER)).hasSize(1);
+        assertThat(messageContractRepository.distinctAppNameByRoleForMessageTypeOnTopic(TEST_TYPE, TOPIC, MessageContractRole.CONSUMER)).hasSize(1);
 
         //when
-        messageContractRepository.deleteContract("app1", "v1", "TestType", "1.0.0", "topic", MessageContractRole.CONSUMER);
+        messageContractRepository.deleteContract("app1", "v1", TEST_TYPE, VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER);
 
         //then
-        assertThat(messageContractRepository.distinctAppNameByRoleForMessageTypeOnTopic("TestType", "topic", MessageContractRole.CONSUMER)).isEmpty();
+        assertThat(messageContractRepository.distinctAppNameByRoleForMessageTypeOnTopic(TEST_TYPE, TOPIC, MessageContractRole.CONSUMER)).isEmpty();
     }
 
     @Test
-    void getContractsForAppVersionAndMessageTypeOnTopicWithRole_contractDeleted_contractNotReturned() {
+    void getContractsForAppVersionAndMessageTypeOnTopicWithRoleContractDeletedContractNotReturned() {
         //given
-        List<MessageContract> contracts = List.of(createContract("app1", "v1", "commitHash", null, MessageContractRole.CONSUMER, null));
+        List<MessageContract> contracts = List.of(createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null));
         messageContractRepository.saveContracts(contracts);
-        assertThat(messageContractRepository.getContractsForAppVersionAndMessageTypeOnTopicWithRole("app1", "v1", "TestType", "topic", MessageContractRole.CONSUMER)).hasSize(1);
+        assertThat(messageContractRepository.getContractsForAppVersionAndMessageTypeOnTopicWithRole("app1", "v1", TEST_TYPE, TOPIC, MessageContractRole.CONSUMER)).hasSize(1);
 
         //when
-        messageContractRepository.deleteContract("app1", "v1", "TestType", "1.0.0", "topic", MessageContractRole.CONSUMER);
+        messageContractRepository.deleteContract("app1", "v1", TEST_TYPE, VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER);
 
         //then
-        assertThat(messageContractRepository.getContractsForAppVersionAndMessageTypeOnTopicWithRole("app1", "v1", "TestType", "topic", MessageContractRole.CONSUMER)).isEmpty();
+        assertThat(messageContractRepository.getContractsForAppVersionAndMessageTypeOnTopicWithRole("app1", "v1", TEST_TYPE, TOPIC, MessageContractRole.CONSUMER)).isEmpty();
     }
 
     private MessageContract createContract(String appName, String appVersion, String commitHash, String branch, MessageContractRole role, String encryptionKeyId) {
-        return createContract(appName, appVersion, commitHash, branch, role, encryptionKeyId, "TestType", null);
+        return createContract(appName, appVersion, commitHash, branch, role, encryptionKeyId, TEST_TYPE, null);
     }
 
+    @SuppressWarnings("java:S107")
     private MessageContract createContract(String appName, String appVersion, String commitHash, String branch, MessageContractRole role, String encryptionKeyId, String messageType, String transactionId) {
         return MessageContract.builder()
                 .appName(appName)
                 .appVersion(appVersion)
                 .messageType(messageType)
-                .messageTypeVersion("1.0.0")
-                .topic("topic")
+                .messageTypeVersion(VERSION_1_0_0)
+                .topic(TOPIC)
                 .role(role)
                 .registryUrl("https://git/repo")
                 .commitHash(commitHash)

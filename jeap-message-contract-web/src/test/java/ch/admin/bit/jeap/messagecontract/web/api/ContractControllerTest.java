@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -24,17 +25,41 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class ContractControllerTest extends ControllerTestBase {
 
+    private static final String API_CONTRACTS = "/api/contracts";
+    private static final String API_CONTRACTS_APP_VERSION = "/api/contracts/{appName}/{appVersion}";
+    private static final String API_DEPLOYMENTS_APP_ENV = "/api/deployments/{appName}/{appVersion}/{environment}";
+    private static final String AUTHORIZATION = "Authorization";
+    private static final String SECRET = "secret";
+    private static final String WRITE = "write";
+    private static final String TEST_TOPIC = "test-topic";
+    private static final String TOPIC = "topic";
+    private static final String VERSION_1_0_0 = "1.0.0";
+    private static final String VERSION_2_0_0 = "2.0.0";
+    private static final String VERSION_3_0_0 = "3.0.0";
+    private static final String ACTIV_ZONE_ENTERED_EVENT = "ActivZoneEnteredEvent";
+    private static final String MY_APP_NAME = "myAppName";
+    private static final String VERSION1 = "version1";
+    private static final String VERSION2 = "version2";
+    private static final String TEST_KEY_ID = "testKeyId";
+    private static final String MASTER = "master";
+
     private static TestRegistryRepo repo;
     private static String repoUrl;
 
-    @Autowired
-    private JpaMessageContractRepository messageContractRepository;
+    private final JpaMessageContractRepository messageContractRepository;
+    private final JpaDeploymentRepository deploymentRepository;
+    private final JsonMapper jsonMapper;
 
     @Autowired
-    private JpaDeploymentRepository deploymentRepository;
-
-    @Autowired
-    private JsonMapper jsonMapper;
+    ContractControllerTest(MockMvc mockMvc,
+                            JpaMessageContractRepository messageContractRepository,
+                            JpaDeploymentRepository deploymentRepository,
+                            JsonMapper jsonMapper) {
+        super(mockMvc);
+        this.messageContractRepository = messageContractRepository;
+        this.deploymentRepository = deploymentRepository;
+        this.jsonMapper = jsonMapper;
+    }
 
     private String basicAuth(String username, String password) {
         return "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
@@ -59,15 +84,15 @@ class ContractControllerTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
-    void get_contracts() {
-        mockMvc.perform(get("/api/contracts"))
+    void getContracts() {
+        mockMvc.perform(get(API_CONTRACTS))
                 .andExpect(status().is2xxSuccessful());
     }
 
     @Test
     @SneakyThrows
-    void put_contracts_unauthorized() {
-        mockMvc.perform(put("/api/contracts")
+    void putContractsUnauthorized() {
+        mockMvc.perform(put(API_CONTRACTS)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnauthorized()); // 401
@@ -75,15 +100,15 @@ class ContractControllerTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
-    void putContract_uploadRole_success() {
-        MessageContractDto contract1 = new MessageContractDto("app2", "3.0.0", "ActivZoneEnteredEvent", "1.0.0",
-                "test-topic", MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
-        MessageContractDto contract2 = new MessageContractDto("app2", "3.0.0", "ActivZoneEnteredEvent", "2.0.0",
-                "test-topic", MessageContractRole.PRODUCER, repoUrl, null, "master", CompatibilityMode.FORWARD, "testKeyId");
+    void putContractUploadRoleSuccess() {
+        MessageContractDto contract1 = new MessageContractDto("app2", VERSION_3_0_0, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TEST_TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+        MessageContractDto contract2 = new MessageContractDto("app2", VERSION_3_0_0, ACTIV_ZONE_ENTERED_EVENT, VERSION_2_0_0,
+                TEST_TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
         CreateMessageContractsDto messageContractsDto = new CreateMessageContractsDto(List.of(createNew(contract1), createNew(contract2)));
 
-        mockMvc.perform(put("/api/contracts/{appName}/{appVersion}", "app", "1.0.0")
-                        .header("Authorization", basicAuth("upload", "secret"))
+        mockMvc.perform(put(API_CONTRACTS_APP_VERSION, "app", VERSION_1_0_0)
+                        .header(AUTHORIZATION, basicAuth("upload", SECRET))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(messageContractsDto)))
                 .andExpect(status().isCreated()); // 201
@@ -91,16 +116,16 @@ class ContractControllerTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
-    void put_then_get_contracts() {
-        MessageContractDto contract1 = new MessageContractDto("app", "2.0.0", "ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
-        MessageContractDto contract2 = new MessageContractDto("app", "2.0.0", "ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.PRODUCER, repoUrl, null, "master", CompatibilityMode.FORWARD, "testKeyId");
+    void putThenGetContracts() {
+        MessageContractDto contract1 = new MessageContractDto("app", VERSION_2_0_0, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+        MessageContractDto contract2 = new MessageContractDto("app", VERSION_2_0_0, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
         CreateMessageContractsDto messageContractsDto = new CreateMessageContractsDto(List.of(createNew(contract1), createNew(contract2)));
 
-        putContracts("app", "2.0.0", messageContractsDto);
+        putContracts("app", VERSION_2_0_0, messageContractsDto);
 
-        MvcResult result = mockMvc.perform(get("/api/contracts")
+        MvcResult result = mockMvc.perform(get(API_CONTRACTS)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
@@ -115,15 +140,15 @@ class ContractControllerTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
-    void put_then_get_contracts_with_legacy_create_contracts_dto() {
-        MessageContractDto contract = new MessageContractDto("app", "1.0.0", "ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.PRODUCER, repoUrl, null, "master", CompatibilityMode.FORWARD, null);
+    void putThenGetContractsWithLegacyCreateContractsDto() {
+        MessageContractDto contract = new MessageContractDto("app", VERSION_1_0_0, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, null);
 
         LegacyCreateMessageContractsDto legacyCreateMessageContractsDto = new LegacyCreateMessageContractsDto(List.of(createLegacyNew(contract)));
 
-        putLegacyContracts("app", "1.0.0", legacyCreateMessageContractsDto);
+        putLegacyContracts("app", VERSION_1_0_0, legacyCreateMessageContractsDto);
 
-        MvcResult result = mockMvc.perform(get("/api/contracts")
+        MvcResult result = mockMvc.perform(get(API_CONTRACTS)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
@@ -138,27 +163,27 @@ class ContractControllerTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
-    void put_then_replace_contracts() {
-        NewMessageContractDto contract1 = new NewMessageContractDto("ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
-        NewMessageContractDto contract2 = new NewMessageContractDto("ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.PRODUCER, repoUrl, null, "master", CompatibilityMode.FORWARD, "testKeyId");
+    void putThenReplaceContracts() {
+        NewMessageContractDto contract1 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+        NewMessageContractDto contract2 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
         List<NewMessageContractDto> uploadedContracts = List.of(contract1, contract2);
         CreateMessageContractsDto messageContractsDto = new CreateMessageContractsDto(uploadedContracts);
-        putContracts("app", "2.0.0", messageContractsDto);
+        putContracts("app", VERSION_2_0_0, messageContractsDto);
 
         assertContractsCount(2);
 
         List<NewMessageContractDto> replacedContracts = List.of(contract1);
         CreateMessageContractsDto replacedContractsDto = new CreateMessageContractsDto(replacedContracts);
-        putContracts("app", "2.0.0", replacedContractsDto);
+        putContracts("app", VERSION_2_0_0, replacedContractsDto);
 
         assertContractsCount(1);
     }
 
     @SneakyThrows
     private void assertContractsCount(int expected) {
-        MvcResult result = mockMvc.perform(get("/api/contracts")
+        MvcResult result = mockMvc.perform(get(API_CONTRACTS)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
@@ -173,34 +198,34 @@ class ContractControllerTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
-    void put_then_add_contracts_for_same_transaction() {
-        NewMessageContractDto contract1 = new NewMessageContractDto("ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
-        putContracts("app", "2.0.0", "tx1", new CreateMessageContractsDto(List.of(contract1)));
+    void putThenAddContractsForSameTransaction() {
+        NewMessageContractDto contract1 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+        putContracts("app", VERSION_2_0_0, "tx1", new CreateMessageContractsDto(List.of(contract1)));
 
         assertContractsCount(1);
 
-        NewMessageContractDto contract2 = new NewMessageContractDto("ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.PRODUCER, repoUrl, null, "master", CompatibilityMode.FORWARD, "testKeyId");
-        putContracts("app", "2.0.0", "tx1", new CreateMessageContractsDto(List.of(contract2)));
+        NewMessageContractDto contract2 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
+        putContracts("app", VERSION_2_0_0, "tx1", new CreateMessageContractsDto(List.of(contract2)));
 
         assertContractsCount(2);
     }
 
     @Test
     @SneakyThrows
-    void put_then_add_same_contract_for_same_transaction() {
-        NewMessageContractDto contract1 = new NewMessageContractDto("ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
-        putContracts("app", "2.0.0", "tx1", new CreateMessageContractsDto(List.of(contract1)));
+    void putThenAddSameContractForSameTransaction() {
+        NewMessageContractDto contract1 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+        putContracts("app", VERSION_2_0_0, "tx1", new CreateMessageContractsDto(List.of(contract1)));
 
         assertContractsCount(1);
         MvcResult result;
         List<MessageContractDto> dtos;
 
-        putContracts("app", "2.0.0", "tx1", new CreateMessageContractsDto(List.of(contract1)));
+        putContracts("app", VERSION_2_0_0, "tx1", new CreateMessageContractsDto(List.of(contract1)));
 
-        result = mockMvc.perform(get("/api/contracts")
+        result = mockMvc.perform(get(API_CONTRACTS)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
@@ -215,31 +240,31 @@ class ContractControllerTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
-    void put_then_add_contracts_for_other_transaction() {
-        NewMessageContractDto contract1 = new NewMessageContractDto("ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
-        putContracts("app", "2.0.0", "tx1", new CreateMessageContractsDto(List.of(contract1)));
+    void putThenAddContractsForOtherTransaction() {
+        NewMessageContractDto contract1 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+        putContracts("app", VERSION_2_0_0, "tx1", new CreateMessageContractsDto(List.of(contract1)));
 
         assertContractsCount(1);
 
-        NewMessageContractDto contract2 = new NewMessageContractDto("ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.PRODUCER, repoUrl, null, "master", CompatibilityMode.FORWARD, "testKeyId");
-        putContracts("app", "2.0.0", "tx2", new CreateMessageContractsDto(List.of(contract2)));
+        NewMessageContractDto contract2 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
+        putContracts("app", VERSION_2_0_0, "tx2", new CreateMessageContractsDto(List.of(contract2)));
 
         assertContractsCount(1);
     }
 
     @Test
-    void put_then_add_contracts_for_other_null_transaction() {
-        NewMessageContractDto contract1 = new NewMessageContractDto("ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
-        putContracts("app", "2.0.0", "tx1", new CreateMessageContractsDto(List.of(contract1)));
+    void putThenAddContractsForOtherNullTransaction() {
+        NewMessageContractDto contract1 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+        putContracts("app", VERSION_2_0_0, "tx1", new CreateMessageContractsDto(List.of(contract1)));
 
         assertContractsCount(1);
 
-        NewMessageContractDto contract2 = new NewMessageContractDto("ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.PRODUCER, repoUrl, null, "master", CompatibilityMode.FORWARD, "testKeyId");
-        putContracts("app", "2.0.0", new CreateMessageContractsDto(List.of(contract2)));
+        NewMessageContractDto contract2 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
+        putContracts("app", VERSION_2_0_0, new CreateMessageContractsDto(List.of(contract2)));
 
         assertContractsCount(1);
     }
@@ -247,14 +272,14 @@ class ContractControllerTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
-    void put_invalid_contract() {
+    void putInvalidContract() {
         NewMessageContractDto contract = new NewMessageContractDto("", "",
-                "topic", MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
         List<NewMessageContractDto> uploadedContracts = List.of(contract);
         CreateMessageContractsDto messageContractsDto = new CreateMessageContractsDto(uploadedContracts);
 
         mockMvc.perform(put("/api/contracts/app/2.0.0")
-                        .header("Authorization", basicAuth("write", "secret"))
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(messageContractsDto)))
                 .andExpect(status().isBadRequest()); // 400
@@ -262,34 +287,34 @@ class ContractControllerTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
-    void delete_contract_unauthorized() {
+    void deleteContractUnauthorized() {
         mockMvc.perform(delete("/api/contracts/app/1"))
                 .andExpect(status().isUnauthorized()); // 401
     }
 
     @Test
     @SneakyThrows
-    void put_then_delete_contract() {
-        MessageContractDto contract1 = new MessageContractDto("app2", "3.0.0", "ActivZoneEnteredEvent", "1.0.0",
-                "test-topic", MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
-        MessageContractDto contract2 = new MessageContractDto("app2", "3.0.0", "ActivZoneEnteredEvent", "2.0.0",
-                "test-topic", MessageContractRole.PRODUCER, repoUrl, null, "master", CompatibilityMode.FORWARD, "testKeyId");
+    void putThenDeleteContract() {
+        MessageContractDto contract1 = new MessageContractDto("app2", VERSION_3_0_0, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TEST_TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+        MessageContractDto contract2 = new MessageContractDto("app2", VERSION_3_0_0, ACTIV_ZONE_ENTERED_EVENT, VERSION_2_0_0,
+                TEST_TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
         CreateMessageContractsDto messageContractsDto = new CreateMessageContractsDto(List.of(createNew(contract1), createNew(contract2)));
 
         // given: two uploaded contracts
-        putContracts("app2", "3.0.0", messageContractsDto);
+        putContracts("app2", VERSION_3_0_0, messageContractsDto);
 
         // when: deleting contract 2
         mockMvc.perform(delete("/api/contracts/app2/3.0.0")
-                        .param("messageType", "ActivZoneEnteredEvent")
-                        .param("messageTypeVersion", "2.0.0")
-                        .param("topic", "test-topic")
+                        .param("messageType", ACTIV_ZONE_ENTERED_EVENT)
+                        .param("messageTypeVersion", VERSION_2_0_0)
+                        .param("topic", TEST_TOPIC)
                         .param("role", "PRODUCER")
-                        .header("Authorization", basicAuth("write", "secret")))
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET)))
                 .andExpect(status().is2xxSuccessful());
 
         // then: expect only contract 1 to exist
-        MvcResult result = mockMvc.perform(get("/api/contracts")
+        MvcResult result = mockMvc.perform(get(API_CONTRACTS)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().is2xxSuccessful())
                 .andReturn();
@@ -307,37 +332,37 @@ class ContractControllerTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
-    void delete_contract_uploadRole_forbidden() {
+    void deleteContractUploadRoleForbidden() {
         mockMvc.perform(delete("/api/contracts/app2/3.0.0")
-                        .param("messageType", "ActivZoneEnteredEvent")
-                        .param("messageTypeVersion", "2.0.0")
-                        .param("topic", "test-topic")
+                        .param("messageType", ACTIV_ZONE_ENTERED_EVENT)
+                        .param("messageTypeVersion", VERSION_2_0_0)
+                        .param("topic", TEST_TOPIC)
                         .param("role", "PRODUCER")
-                        .header("Authorization", basicAuth("upload", "secret")))
+                        .header(AUTHORIZATION, basicAuth("upload", SECRET)))
                 .andExpect(status().isForbidden()); // 403
     }
 
     @Test
     @SneakyThrows
-    void put_then_get_by_environment() {
-        MessageContractDto contract1 = new MessageContractDto("myAppName", "version1", "ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
-        MessageContractDto contract2 = new MessageContractDto("myAppName", "version1", "ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.PRODUCER, repoUrl, null, "master", CompatibilityMode.FORWARD, "testKeyId");
-        MessageContractDto contract3 = new MessageContractDto("myAppName", "version2", "ActivZoneEnteredEvent", "1.0.0",
-                "topic", MessageContractRole.PRODUCER, repoUrl, null, "master", CompatibilityMode.FORWARD, "testKeyId");
+    void putThenGetByEnvironment() {
+        MessageContractDto contract1 = new MessageContractDto(MY_APP_NAME, VERSION1, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+        MessageContractDto contract2 = new MessageContractDto(MY_APP_NAME, VERSION1, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
+        MessageContractDto contract3 = new MessageContractDto(MY_APP_NAME, VERSION2, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
 
-        putContracts("myAppName", "version1", new CreateMessageContractsDto(List.of(createNew(contract1), createNew(contract2))));
-        putContracts("myAppName", "version2", new CreateMessageContractsDto(singletonList(createNew(contract3))));
+        putContracts(MY_APP_NAME, VERSION1, new CreateMessageContractsDto(List.of(createNew(contract1), createNew(contract2))));
+        putContracts(MY_APP_NAME, VERSION2, new CreateMessageContractsDto(singletonList(createNew(contract3))));
 
         // put deployment v1 - PROD
-        mockMvc.perform(put("/api/deployments/{appName}/{appVersion}/{environment}", "myAppName", "version1", "prod")
-                        .header("Authorization", basicAuth("write", "secret")))
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, MY_APP_NAME, VERSION1, "prod")
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET)))
                 .andExpect(status().isCreated()); // 201
 
 
         // GET /api/contracts?env=prod
-        MvcResult prodResult = mockMvc.perform(get("/api/contracts")
+        MvcResult prodResult = mockMvc.perform(get(API_CONTRACTS)
                         .param("env", "prod")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().is2xxSuccessful())
@@ -353,7 +378,7 @@ class ContractControllerTest extends ControllerTestBase {
         assertFalse(prodDtos.contains(contract3));
 
         // GET /api/contracts?env=ref (should be empty)
-        MvcResult refResult = mockMvc.perform(get("/api/contracts")
+        MvcResult refResult = mockMvc.perform(get(API_CONTRACTS)
                         .param("env", "ref")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().is2xxSuccessful())
@@ -367,12 +392,12 @@ class ContractControllerTest extends ControllerTestBase {
         assertTrue(refDtos.isEmpty());
 
         // PUT /api/deployments/{appName}/{appVersion}/{environment} for version2/ref
-        mockMvc.perform(put("/api/deployments/{appName}/{appVersion}/{environment}", "myAppName", "version2", "ref")
-                        .header("Authorization", basicAuth("write", "secret")))
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, MY_APP_NAME, VERSION2, "ref")
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET)))
                 .andExpect(status().isCreated()); // 201
 
         // GET /api/contracts?env=ref (should now contain contract3)
-        MvcResult refResultAfter = mockMvc.perform(get("/api/contracts")
+        MvcResult refResultAfter = mockMvc.perform(get(API_CONTRACTS)
                         .param("env", "ref")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().is2xxSuccessful())
@@ -415,9 +440,9 @@ class ContractControllerTest extends ControllerTestBase {
 
     @SneakyThrows
     private void putContracts(String appName, String appVersion, String transactionId, CreateMessageContractsDto messageContractsDto) {
-        mockMvc.perform(put("/api/contracts/{appName}/{appVersion}", appName, appVersion)
+        mockMvc.perform(put(API_CONTRACTS_APP_VERSION, appName, appVersion)
                         .param("transactionId", transactionId)
-                        .header("Authorization", basicAuth("write", "secret"))
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(messageContractsDto)))
                 .andExpect(status().isCreated()); // 201
@@ -425,8 +450,8 @@ class ContractControllerTest extends ControllerTestBase {
 
     @SneakyThrows
     private void putContracts(String appName, String appVersion, CreateMessageContractsDto messageContractsDto) {
-        mockMvc.perform(put("/api/contracts/{appName}/{appVersion}", appName, appVersion)
-                        .header("Authorization", basicAuth("write", "secret"))
+        mockMvc.perform(put(API_CONTRACTS_APP_VERSION, appName, appVersion)
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(messageContractsDto)))
                 .andExpect(status().isCreated()); // 201
@@ -434,8 +459,8 @@ class ContractControllerTest extends ControllerTestBase {
 
     @SneakyThrows
     private void putLegacyContracts(String appName, String appVersion, LegacyCreateMessageContractsDto legacyMessageContractsDto) {
-        mockMvc.perform(put("/api/contracts/{appName}/{appVersion}", appName, appVersion)
-                        .header("Authorization", basicAuth("write", "secret"))
+        mockMvc.perform(put(API_CONTRACTS_APP_VERSION, appName, appVersion)
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(legacyMessageContractsDto)))
                 .andExpect(status().isCreated()); // 201

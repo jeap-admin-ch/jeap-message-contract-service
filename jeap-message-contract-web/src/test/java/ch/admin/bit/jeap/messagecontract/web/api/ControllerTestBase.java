@@ -9,7 +9,11 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 public class ControllerTestBase {
 
+    protected final MockMvc mockMvc;
+
     @Autowired
-    protected MockMvc mockMvc;
+    public ControllerTestBase(MockMvc mockMvc) {
+        this.mockMvc = mockMvc;
+    }
 
 }

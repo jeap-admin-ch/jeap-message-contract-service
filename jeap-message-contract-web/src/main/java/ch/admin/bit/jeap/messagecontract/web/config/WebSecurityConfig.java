@@ -1,7 +1,6 @@
 package ch.admin.bit.jeap.messagecontract.web.config;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -30,7 +29,7 @@ class WebSecurityConfig {
     private final WebSecurityProperties webSecurityProperties;
 
     @Bean
-    SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) {
         http
                 .securityMatcher("/api/**", "/error")
                 .csrf(AbstractHttpConfigurer::disable)

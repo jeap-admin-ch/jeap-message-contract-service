@@ -25,14 +25,23 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MessageContractServiceTest {
 
+    private static final String TEST_TYPE1 = "TestType1";
+    private static final String TEST_TYPE2 = "TestType2";
+    private static final String TEST_KEY = "testKey";
+    private static final String TRANSACTION_ID = "transactionId";
+
     @MockitoBean
     private MessageTypeRepositoryFactory messageTypeRepositoryFactoryMock;
 
     @Mock
     private MessageTypeRepository messageTypeRepoMock;
 
+    private final MessageContractService messageContractService;
+
     @Autowired
-    private MessageContractService messageContractService;
+    MessageContractServiceTest(MessageContractService messageContractService) {
+        this.messageContractService = messageContractService;
+    }
 
     @Test
     void saveContracts() {
@@ -42,30 +51,30 @@ class MessageContractServiceTest {
                 .thenReturn("{}");
 
         List<MessageContract> appV1Contracts = List.of(
-                MessageContractTestFactory.createContract("app", "v1", "TestType1", null),
-                MessageContractTestFactory.createContract("app", "v1", "TestType2", "testKey")
+                MessageContractTestFactory.createContract("app", "v1", TEST_TYPE1, null),
+                MessageContractTestFactory.createContract("app", "v1", TEST_TYPE2, TEST_KEY)
         );
         List<MessageContract> appV2Contracts = List.of(
-                MessageContractTestFactory.createContract("app", "v2", "TestType1", null),
-                MessageContractTestFactory.createContract("app", "v2", "TestType2", "testKey")
+                MessageContractTestFactory.createContract("app", "v2", TEST_TYPE1, null),
+                MessageContractTestFactory.createContract("app", "v2", TEST_TYPE2, TEST_KEY)
         );
         List<MessageContract> app2Contracts = List.of(
-                MessageContractTestFactory.createContract("app2", "v1", "TestType1", null),
-                MessageContractTestFactory.createContract("app2", "v1", "TestType2", "testKey")
+                MessageContractTestFactory.createContract("app2", "v1", TEST_TYPE1, null),
+                MessageContractTestFactory.createContract("app2", "v1", TEST_TYPE2, TEST_KEY)
         );
 
-        messageContractService.saveContracts("app", "v1", "transactionId", appV1Contracts);
-        messageContractService.saveContracts("app", "v2", "transactionId", appV2Contracts);
-        messageContractService.saveContracts("app2", "v1", "transactionId", app2Contracts);
+        messageContractService.saveContracts("app", "v1", TRANSACTION_ID, appV1Contracts);
+        messageContractService.saveContracts("app", "v2", TRANSACTION_ID, appV2Contracts);
+        messageContractService.saveContracts("app2", "v1", TRANSACTION_ID, app2Contracts);
         assertEquals(6, messageContractService.getAllContracts().size());
 
         List<MessageContract> appV2UpdatedContracts = List.of(
-                MessageContractTestFactory.createContract("app", "v2", "TestType1", null)
+                MessageContractTestFactory.createContract("app", "v2", TEST_TYPE1, null)
         );
-        messageContractService.saveContracts("app", "v2", "transactionId", appV2UpdatedContracts);
+        messageContractService.saveContracts("app", "v2", TRANSACTION_ID, appV2UpdatedContracts);
         assertEquals(5, messageContractService.getAllContracts().size());
         assertTrue(messageContractService.getAllContracts().stream().noneMatch(c ->
-                c.getAppName().equals("app") && c.getAppVersion().equals("v2") && c.getMessageType().equals("TestType2")));
+                c.getAppName().equals("app") && c.getAppVersion().equals("v2") && c.getMessageType().equals(TEST_TYPE2)));
     }
 
 

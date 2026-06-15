@@ -38,7 +38,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void refreshAll_whenCacheDisabled_doesNothing() {
+    void refreshAllWhenCacheDisabledDoesNothing() {
         MessageTypeRepositoryCacheProperties cacheProps = new MessageTypeRepositoryCacheProperties();
         cacheProps.setEnabled(false);
         cacheProps.setDirectory(cacheRoot.toString());
@@ -52,7 +52,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void refreshAll_createsCacheEntryForConfiguredRepository() {
+    void refreshAllCreatesCacheEntryForConfiguredRepository() {
         MessageTypeRepositoryReferenceCache cache = newEnabledCache(repoUrl);
 
         cache.refreshAll();
@@ -67,7 +67,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void refreshAll_secondCallUpdatesExistingCache() throws Exception {
+    void refreshAllSecondCallUpdatesExistingCache() throws Exception {
         MessageTypeRepositoryReferenceCache cache = newEnabledCache(repoUrl);
 
         cache.refreshAll();
@@ -91,7 +91,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void refreshAll_invalidCacheEntryIsRecreated() throws Exception {
+    void refreshAllInvalidCacheEntryIsRecreated() throws Exception {
         MessageTypeRepositoryReferenceCache cache = newEnabledCache(repoUrl);
 
         cache.refreshAll();
@@ -105,7 +105,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void refreshAll_failedRefreshDoesNotThrow() {
+    void refreshAllFailedRefreshDoesNotThrow() {
         MessageTypeRepositoryReferenceCache cache = newEnabledCache("file:///this-does-not-exist");
 
         cache.refreshAll();
@@ -114,7 +114,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void factory_clonesKnownRepoUsingAlternates_andSchemaLoadingStillWorks() throws Exception {
+    void factoryClonesKnownRepoUsingAlternatesAndSchemaLoadingStillWorks() throws Exception {
         MessageTypeRepositoryReferenceCache cache = newEnabledCache(repoUrl);
         cache.refreshAll();
 
@@ -140,7 +140,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void factory_cacheHitDoesNotOpenAnyTransport_andServesFromAlternatesOnly() throws Exception {
+    void factoryCacheHitDoesNotOpenAnyTransportAndServesFromAlternatesOnly() throws Exception {
         MessageTypeRepositoryReferenceCache cache = newEnabledCache(repoUrl);
         cache.refreshAll();
 
@@ -162,7 +162,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void factory_clonesUnknownRepoDirectlyWithoutAlternates() {
+    void factoryClonesUnknownRepoDirectlyWithoutAlternates() {
         MessageTypeRepositoryReferenceCache cache = newEnabledCache("https://example.invalid/other.git");
         MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(
                 propertiesFor("https://example.invalid/other.git"), new SimpleMeterRegistry(), cache);
@@ -175,7 +175,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void factory_cacheHitServesSchemaWithoutContactingUpstream() throws Exception {
+    void factoryCacheHitServesSchemaWithoutContactingUpstream() throws Exception {
         MessageTypeRepositoryReferenceCache cache = newEnabledCache(repoUrl);
         cache.refreshAll();
 
@@ -198,7 +198,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void factory_staleCacheTriggersRefreshAndServesNewCommit() throws Exception {
+    void factoryStaleCacheTriggersRefreshAndServesNewCommit() throws Exception {
         MessageTypeRepositoryReferenceCache cache = newEnabledCache(repoUrl);
         cache.refreshAll();
         File cacheDir = cache.getCacheRepoDir(repoUrl).orElseThrow();
@@ -226,7 +226,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void factory_branchCheckout_picksUpMovedUpstreamTip() throws Exception {
+    void factoryBranchCheckoutPicksUpMovedUpstreamTip() throws Exception {
         MessageTypeRepositoryReferenceCache cache = newEnabledCache(repoUrl);
         cache.refreshAll();
         File cacheDir = cache.getCacheRepoDir(repoUrl).orElseThrow();
@@ -255,7 +255,7 @@ class MessageTypeRepositoryReferenceCacheTest {
     }
 
     @Test
-    void refreshIfStale_debouncesConcurrentCallsWithinWindow() {
+    void refreshIfStaleDebouncesConcurrentCallsWithinWindow() {
         MessageTypeRepositoryReferenceCache cache = newEnabledCache(repoUrl, 60_000L);
         cache.refreshAll();
         File cacheDir = cache.getCacheRepoDir(repoUrl).orElseThrow();

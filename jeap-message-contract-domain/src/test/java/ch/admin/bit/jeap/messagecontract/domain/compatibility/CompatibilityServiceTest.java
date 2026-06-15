@@ -28,12 +28,27 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ContextConfiguration(classes = {PersistenceConfiguration.class, DomainConfiguration.class, MessageTypeRepositoryConfiguration.class})
 class CompatibilityServiceTest {
 
+    private static final String TEST_CONSUMER = "test-consumer";
+    private static final String TEST_PRODUCER = "test-producer";
+    private static final String TEST_PRODUCER_2 = "test-producer-2";
+    private static final String VERSION_1_0_0 = "1.0.0";
+    private static final String VERSION_2_0_0 = "2.0.0";
+    private static final String ACTIV_ZONE_ENTERED_EVENT = "ActivZoneEnteredEvent";
+    private static final String TOPIC = "topic";
+    private static final String TRANSACTION_ID = "transactionId";
+
+    private final CompatibilityService compatibilityService;
+    private final MessageContractService messageContractService;
+    private final DeploymentService deploymentService;
+
     @Autowired
-    private CompatibilityService compatibilityService;
-    @Autowired
-    private MessageContractService messageContractService;
-    @Autowired
-    private DeploymentService deploymentService;
+    CompatibilityServiceTest(CompatibilityService compatibilityService,
+                              MessageContractService messageContractService,
+                              DeploymentService deploymentService) {
+        this.compatibilityService = compatibilityService;
+        this.messageContractService = messageContractService;
+        this.deploymentService = deploymentService;
+    }
 
     private static TestRegistryRepo testRepo;
 
@@ -48,30 +63,30 @@ class CompatibilityServiceTest {
     }
 
     @Test
-    void canIDeploy_allConsumerInteractionsCompatible_shouldBeCompatible() {
+    void canIDeployAllConsumerInteractionsCompatibleShouldBeCompatible() {
         // given: one consumer, two producers of the same type on the same topic, deployed on prod
-        saveActivZoneEnteredEventContract("test-consumer", "1.0", CONSUMER, "1.0.0");
-        saveActivZoneEnteredEventContract("test-producer", "1.0", PRODUCER, "1.0.0");
-        saveActivZoneEnteredEventContract("test-producer-2", "2.0", PRODUCER, "1.0.0");
-        deploymentService.saveNewDeployment("test-producer", "1.0", "prod");
-        deploymentService.saveNewDeployment("test-producer-2", "2.0", "prod");
+        saveActivZoneEnteredEventContract(TEST_CONSUMER, "1.0", CONSUMER, VERSION_1_0_0);
+        saveActivZoneEnteredEventContract(TEST_PRODUCER, "1.0", PRODUCER, VERSION_1_0_0);
+        saveActivZoneEnteredEventContract(TEST_PRODUCER_2, "2.0", PRODUCER, VERSION_1_0_0);
+        deploymentService.saveNewDeployment(TEST_PRODUCER, "1.0", "prod");
+        deploymentService.saveNewDeployment(TEST_PRODUCER_2, "2.0", "prod");
 
         // when: checking compatibility of the consumer with the producers
-        CompatibilityCheckResult result = compatibilityService.checkCompatibility("test-consumer", "1.0", "prod");
+        CompatibilityCheckResult result = compatibilityService.checkCompatibility(TEST_CONSUMER, "1.0", "prod");
 
         // then: expect both producer interactions to be compatible
         assertThat(result.compatible()).isTrue();
         assertThat(result.interactions())
                 .containsOnlyOnce(
-                        compatibleInteraction("test-producer", "1.0",
-                                "ActivZoneEnteredEvent", "1.0.0", "topic", InteractionRole.PRODUCER),
-                        compatibleInteraction("test-producer-2", "2.0",
-                                "ActivZoneEnteredEvent", "1.0.0", "topic", InteractionRole.PRODUCER));
+                        compatibleInteraction(TEST_PRODUCER, "1.0",
+                                ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0, TOPIC, InteractionRole.PRODUCER),
+                        compatibleInteraction(TEST_PRODUCER_2, "2.0",
+                                ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0, TOPIC, InteractionRole.PRODUCER));
         assertThat(result.incompatibilities()).isEmpty();
     }
 
     @Test
-    void canIDeploy_noInteractions_shouldBeCompatible() {
+    void canIDeployNoInteractionsShouldBeCompatible() {
         // given: no contracts or deployments
 
         // when
@@ -86,16 +101,16 @@ class CompatibilityServiceTest {
     }
 
     @Test
-    void canIDeploy_incompatibleSchema_shouldBeIncompatible() {
+    void canIDeployIncompatibleSchemaShouldBeIncompatible() {
         // given: consumer consumer v1, producer produces incompatible event v2
-        saveActivZoneEnteredEventContract("test-consumer", "1.0", CONSUMER, "1.0.0");
-        saveActivZoneEnteredEventContract("test-producer", "2.0", PRODUCER, "2.0.0");
-        deploymentService.saveNewDeployment("test-producer", "2.0", "prod");
-        ConsumerProducerInteraction interaction = incompatibleInteraction("test-producer", "2.0",
-                "ActivZoneEnteredEvent", "2.0.0", "topic", InteractionRole.PRODUCER);
+        saveActivZoneEnteredEventContract(TEST_CONSUMER, "1.0", CONSUMER, VERSION_1_0_0);
+        saveActivZoneEnteredEventContract(TEST_PRODUCER, "2.0", PRODUCER, VERSION_2_0_0);
+        deploymentService.saveNewDeployment(TEST_PRODUCER, "2.0", "prod");
+        ConsumerProducerInteraction interaction = incompatibleInteraction(TEST_PRODUCER, "2.0",
+                ACTIV_ZONE_ENTERED_EVENT, VERSION_2_0_0, TOPIC, InteractionRole.PRODUCER);
 
         // when
-        CompatibilityCheckResult result = compatibilityService.checkCompatibility("test-consumer", "1.0", "prod");
+        CompatibilityCheckResult result = compatibilityService.checkCompatibility(TEST_CONSUMER, "1.0", "prod");
 
         // then
         assertThat(result.compatible()).isFalse();
@@ -112,15 +127,15 @@ class CompatibilityServiceTest {
     }
 
     @Test
-    void canIDeploy_incompatibleSchema_butDifferentTopic_shouldBeCompatible() {
+    void canIDeployIncompatibleSchemaButDifferentTopicShouldBeCompatible() {
         // given: consumer consumes v1 on topic, producer produces incompatible event v2 on topic-2
-        saveActivZoneEnteredEventContract("test-consumer", "1.0", CONSUMER, "1.0.0");
-        messageContractService.saveContracts("test-producer", "2.0", "transactionId", List.of(
-                createActivZoneEnteredEventContract("test-producer", "2.0", "2.0.0", PRODUCER, "topic-2")));
-        deploymentService.saveNewDeployment("test-producer", "2.0", "prod");
+        saveActivZoneEnteredEventContract(TEST_CONSUMER, "1.0", CONSUMER, VERSION_1_0_0);
+        messageContractService.saveContracts(TEST_PRODUCER, "2.0", TRANSACTION_ID, List.of(
+                createActivZoneEnteredEventContract(TEST_PRODUCER, "2.0", VERSION_2_0_0, PRODUCER, "topic-2")));
+        deploymentService.saveNewDeployment(TEST_PRODUCER, "2.0", "prod");
 
         // when: deploying the consumer, it should be compatible os the consumer/producer have contracts for different topics
-        CompatibilityCheckResult result = compatibilityService.checkCompatibility("test-consumer", "1.0", "prod");
+        CompatibilityCheckResult result = compatibilityService.checkCompatibility(TEST_CONSUMER, "1.0", "prod");
 
         // then
         assertThat(result.compatible()).isTrue();
@@ -129,14 +144,14 @@ class CompatibilityServiceTest {
     }
 
     @Test
-    void canIDeploy_interactedComponentsNotDeployedOnEnvironment_shouldBeCompatible() {
+    void canIDeployInteractedComponentsNotDeployedOnEnvironmentShouldBeCompatible() {
         // given: an incompatible interaction between consumer and producer, with the producer on ref
-        saveActivZoneEnteredEventContract("test-consumer", "1.0", CONSUMER, "1.0.0");
-        saveActivZoneEnteredEventContract("test-producer", "1.0", PRODUCER, "2.0.0");
-        deploymentService.saveNewDeployment("test-producer", "1.0", "ref");
+        saveActivZoneEnteredEventContract(TEST_CONSUMER, "1.0", CONSUMER, VERSION_1_0_0);
+        saveActivZoneEnteredEventContract(TEST_PRODUCER, "1.0", PRODUCER, VERSION_2_0_0);
+        deploymentService.saveNewDeployment(TEST_PRODUCER, "1.0", "ref");
 
         // when: deploying the consumer to prod, the incompatible deployment on ref should not block it
-        CompatibilityCheckResult result = compatibilityService.checkCompatibility("test-consumer", "1.0", "prod");
+        CompatibilityCheckResult result = compatibilityService.checkCompatibility(TEST_CONSUMER, "1.0", "prod");
 
         // then
         assertThat(result.compatible()).isTrue();
@@ -145,13 +160,13 @@ class CompatibilityServiceTest {
     }
 
     @Test
-    void canIDeploy_unknownAppOrAppVersion_shouldBeAbleToDeploy() {
+    void canIDeployUnknownAppOrAppVersionShouldBeAbleToDeploy() {
         // given: a deployment with a contract for a consumer
-        saveActivZoneEnteredEventContract("test-consumer", "1.0", CONSUMER, "1.0.0");
-        deploymentService.saveNewDeployment("test-consumer", "1.0", "ref");
+        saveActivZoneEnteredEventContract(TEST_CONSUMER, "1.0", CONSUMER, VERSION_1_0_0);
+        deploymentService.saveNewDeployment(TEST_CONSUMER, "1.0", "ref");
 
         // when: deploying another, unknown app, this should be possible
-        CompatibilityCheckResult result = compatibilityService.checkCompatibility("test-consumer", "1.0", "prod");
+        CompatibilityCheckResult result = compatibilityService.checkCompatibility(TEST_CONSUMER, "1.0", "prod");
 
         // then
         assertThat(result.compatible()).isTrue();
@@ -174,7 +189,7 @@ class CompatibilityServiceTest {
         return MessageContract.builder()
                 .appName(appName)
                 .appVersion(appVersion)
-                .messageType("ActivZoneEnteredEvent")
+                .messageType(ACTIV_ZONE_ENTERED_EVENT)
                 .messageTypeVersion(messageTypeVersion)
                 .topic(topic)
                 .role(role)
@@ -186,7 +201,7 @@ class CompatibilityServiceTest {
     }
 
     private void saveActivZoneEnteredEventContract(String appName, String appVersion, MessageContractRole consumer, String messageTypeVersion) {
-        messageContractService.saveContracts(appName, appVersion, "transactionId", List.of(
-                createActivZoneEnteredEventContract(appName, appVersion, messageTypeVersion, consumer, "topic")));
+        messageContractService.saveContracts(appName, appVersion, TRANSACTION_ID, List.of(
+                createActivZoneEnteredEventContract(appName, appVersion, messageTypeVersion, consumer, TOPIC)));
     }
 }

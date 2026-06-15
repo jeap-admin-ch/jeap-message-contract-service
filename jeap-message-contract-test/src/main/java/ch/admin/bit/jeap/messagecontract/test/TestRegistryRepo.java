@@ -19,7 +19,7 @@ public record TestRegistryRepo(Path repoDir, String revision, String url) {
     static final String TEST_MAIL_COM = "test@mail.com";
 
     public static TestRegistryRepo createMessageTypeRegistryRepository() throws IOException {
-        Path repoDir = Files.createTempDirectory("test-repo");
+        Path repoDir = Files.createTempDirectory("test-repo"); // NOSONAR
 
         // Init file-based repository, and copy/commit test files
         try (Git newRepo = initGitRepo(repoDir)) {

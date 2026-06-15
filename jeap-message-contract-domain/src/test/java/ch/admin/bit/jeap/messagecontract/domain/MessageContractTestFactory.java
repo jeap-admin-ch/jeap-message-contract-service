@@ -3,10 +3,10 @@ package ch.admin.bit.jeap.messagecontract.domain;
 import ch.admin.bit.jeap.messagecontract.persistence.model.CompatibilityMode;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContract;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole;
-import lombok.experimental.UtilityClass;
 
-@UtilityClass
-public class MessageContractTestFactory {
+public final class MessageContractTestFactory {
+
+    private MessageContractTestFactory() {}
 
     public static MessageContract createContract(String appName, String appVersion, String messageType, String encryptionKeyId) {
         return MessageContract.builder()

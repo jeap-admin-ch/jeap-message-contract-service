@@ -20,10 +20,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ContextConfiguration(classes = PersistenceConfiguration.class)
 class DeploymentRepositoryTest {
 
+    private final DeploymentRepository deploymentRepository;
+    private final TestEntityManager testEntityManager;
+
     @Autowired
-    private DeploymentRepository deploymentRepository;
-    @Autowired
-    private TestEntityManager testEntityManager;
+    DeploymentRepositoryTest(DeploymentRepository deploymentRepository, TestEntityManager testEntityManager) {
+        this.deploymentRepository = deploymentRepository;
+        this.testEntityManager = testEntityManager;
+    }
 
     @Test
     void save() {
@@ -110,7 +114,7 @@ class DeploymentRepositoryTest {
     @Test
     void deleteDeployment() {
         createAndSaveDeployment("app", "1");
-        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc().size()).isEqualTo(1);
+        assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc()).hasSize(1);
 
         deploymentRepository.deleteDeployment("app", "ABN");
         assertThat(deploymentRepository.findTop10ByOrderByCreatedAtDesc()).isEmpty();

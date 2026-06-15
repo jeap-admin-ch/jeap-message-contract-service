@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 @Slf4j
+@SuppressWarnings("java:S1118")
 public class MessageContractApplication {
 
     public static void main(String[] args) {

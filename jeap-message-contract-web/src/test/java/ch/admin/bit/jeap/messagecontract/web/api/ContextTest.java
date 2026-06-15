@@ -11,8 +11,12 @@ import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
 @Slf4j
 class ContextTest {
 
+    private final ContractController contractController;
+
     @Autowired
-    private ContractController contractController;
+    ContextTest(ContractController contractController) {
+        this.contractController = contractController;
+    }
 
     @Test
     void contextLoads() {

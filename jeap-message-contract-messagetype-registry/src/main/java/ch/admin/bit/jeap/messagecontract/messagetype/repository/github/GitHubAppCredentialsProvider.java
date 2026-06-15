@@ -147,18 +147,20 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
 
             // Set credentials
             for (CredentialItem item : items) {
-                if (item instanceof CredentialItem.Username username) {
-                    username.setValue("x-access-token");
-                } else if (item instanceof CredentialItem.Password password) {
-                    password.setValue(accessToken.toCharArray());
-                } else {
-                    throw new UnsupportedCredentialItem(uri, item.getPromptText());
+                switch (item) {
+                    case CredentialItem.Username username -> username.setValue("x-access-token");
+                    case CredentialItem.Password password -> password.setValue(accessToken.toCharArray());
+                    default -> throw new UnsupportedCredentialItem(uri, item.getPromptText());
                 }
             }
 
             log.info("GitHubAppCredentials.get: succeeded for {} in {} ms", uri, elapsedMs(getStartNanos));
             return true;
 
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("GitHubAppCredentials.get: interrupted for {} after {} ms: {}", uri, elapsedMs(getStartNanos), e.getMessage(), e);
+            return false;
         } catch (Exception e) {
             log.warn("GitHubAppCredentials.get: failed for {} after {} ms: {}", uri, elapsedMs(getStartNanos), e.getMessage(), e);
             return false;
@@ -170,7 +172,7 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
     /**
      * Gets the installation ID for a specific repository
      */
-    private Long getInstallationId(String owner, String repo) throws Exception {
+    private Long getInstallationId(String owner, String repo) throws java.io.IOException, InterruptedException, JOSEException {
         String jwt = createAppJWT();
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -193,7 +195,7 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
         return null;
     }
 
-    private String getInstallationAccessToken(Long installationId) throws Exception {
+    private String getInstallationAccessToken(Long installationId) throws java.io.IOException, InterruptedException, JOSEException {
         String jwt = createAppJWT();
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -247,7 +249,7 @@ public class GitHubAppCredentialsProvider extends CredentialsProvider {
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             return keyFactory.generatePrivate(spec);
         } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
-            throw new RuntimeException(e);
+            throw new IllegalStateException("Failed to parse GitHub App private key", e);
         }
     }
 

@@ -13,6 +13,8 @@ import static java.util.stream.Collectors.joining;
  */
 class IncompatibilityMessageBuilder {
 
+    private IncompatibilityMessageBuilder() {}
+
     public static String build(List<Incompatibility> incompatibilities) {
         if (incompatibilities.isEmpty()) {
             return "No incompatible interactions found";

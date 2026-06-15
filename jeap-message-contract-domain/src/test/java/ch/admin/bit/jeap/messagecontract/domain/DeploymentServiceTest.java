@@ -19,24 +19,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ContextConfiguration(classes = {PersistenceConfiguration.class, DomainConfiguration.class})
 class DeploymentServiceTest {
 
-    @Autowired
-    private DeploymentService deploymentService;
-
-    @Autowired
-    private MessageContractRepository messageContractRepository;
+    private final DeploymentService deploymentService;
+    private final MessageContractRepository messageContractRepository;
 
     @MockitoBean
     private MessageTypeRepositoryFactory messageTypeRepositoryFactory;
 
+    @Autowired
+    DeploymentServiceTest(DeploymentService deploymentService,
+                          MessageContractRepository messageContractRepository) {
+        this.deploymentService = deploymentService;
+        this.messageContractRepository = messageContractRepository;
+    }
+
     @Test
-    void saveNewDeployment_appNameIsNotDefined_deploymentNotSaved() {
+    void saveNewDeploymentAppNameIsNotDefinedDeploymentNotSaved() {
         deploymentService.saveNewDeployment("unknown", "v1", "ABN");
         assertThat(deploymentService.findLast10Deployments()).isEmpty();
     }
 
 
     @Test
-    void saveNewDeployment_appNameIsDefined_deploymentSaved() {
+    void saveNewDeploymentAppNameIsDefinedDeploymentSaved() {
         List<MessageContract> appV1Contracts = List.of(
                 MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
         );
@@ -47,7 +51,7 @@ class DeploymentServiceTest {
     }
 
     @Test
-    void deleteDeployment_isDeleted() {
+    void deleteDeploymentIsDeleted() {
         List<MessageContract> appV1Contracts = List.of(
                 MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
         );
@@ -61,7 +65,7 @@ class DeploymentServiceTest {
     }
 
     @Test
-    void deleteDeployment_onlyAppIsDeleted() {
+    void deleteDeploymentOnlyAppIsDeleted() {
         List<MessageContract> appV1Contracts = List.of(
                 MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
         );

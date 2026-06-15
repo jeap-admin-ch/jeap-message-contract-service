@@ -13,6 +13,8 @@ import java.net.MalformedURLException;
 @Slf4j
 class AvroSchemaLoader {
 
+    private AvroSchemaLoader() {}
+
     static String loadSchemaAsJsonProtocol(String schemaFilename, SchemaLocations schemaLocations) {
         try {
             IdlFileParser idlFileParser = createIdlFileParser(schemaLocations);

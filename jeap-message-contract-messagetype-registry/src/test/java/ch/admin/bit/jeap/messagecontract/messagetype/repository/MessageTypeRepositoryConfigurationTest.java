@@ -15,13 +15,18 @@ import static org.assertj.core.api.Assertions.assertThat;
         "messages.repository-cache.directory=/tmp/contract-cache-test",
         "messages.repository-cache.refresh-cron=0 30 2 * * *"
 })
+@SuppressWarnings("java:S5443")
 class MessageTypeRepositoryConfigurationTest {
 
-    @Autowired
-    private MessageTypeRepositoryProperties repositoryProperties;
+    private final MessageTypeRepositoryProperties repositoryProperties;
+    private final MessageTypeRepositoryCacheProperties cacheProperties;
 
     @Autowired
-    private MessageTypeRepositoryCacheProperties cacheProperties;
+    MessageTypeRepositoryConfigurationTest(MessageTypeRepositoryProperties repositoryProperties,
+                                           MessageTypeRepositoryCacheProperties cacheProperties) {
+        this.repositoryProperties = repositoryProperties;
+        this.cacheProperties = cacheProperties;
+    }
 
     @Test
     void repositoryCacheAndRepositoryPropertiesBindUnderMessagesPrefix() {

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -22,14 +23,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class DeploymentControllerTest extends ControllerTestBase {
 
-    @Autowired
-    private JpaDeploymentRepository deploymentRepository;
+    private static final String AUTHORIZATION = "Authorization";
+    private static final String WRITE_SECRET = "write:secret";
+    private static final String BASIC_PREFIX = "Basic ";
+    private static final String API_DEPLOYMENTS = "/api/deployments";
+    private static final String API_DEPLOYMENTS_APP_ENV = "/api/deployments/{appName}/{appVersion}/{environment}";
+    private static final String MY_APP_NAME = "myAppName";
+    private static final String APP_VERSION = "appVersion";
+
+    private final JpaDeploymentRepository deploymentRepository;
+    private final JpaMessageContractRepository messageContractRepository;
+    private final JsonMapper jsonMapper;
 
     @Autowired
-    private JpaMessageContractRepository messageContractRepository;
-
-    @Autowired
-    private JsonMapper jsonMapper;
+    DeploymentControllerTest(MockMvc mockMvc,
+                              JpaDeploymentRepository deploymentRepository,
+                              JpaMessageContractRepository messageContractRepository,
+                              JsonMapper jsonMapper) {
+        super(mockMvc);
+        this.deploymentRepository = deploymentRepository;
+        this.messageContractRepository = messageContractRepository;
+        this.jsonMapper = jsonMapper;
+    }
 
     @AfterEach
     void cleanup() {
@@ -39,7 +54,7 @@ class DeploymentControllerTest extends ControllerTestBase {
 
     @Test
     void getDeployments() throws Exception {
-        mockMvc.perform(get("/api/deployments"))
+        mockMvc.perform(get(API_DEPLOYMENTS))
                 .andExpect(status().is2xxSuccessful());
     }
 
@@ -54,15 +69,15 @@ class DeploymentControllerTest extends ControllerTestBase {
     @Test
     void putDeploymentAppNotDefined() throws Exception {
         // PUT /api/deployments/{appName}/{appVersion}/{environment} with Basic Auth
-        String basicAuthHeader = "Basic " + Base64.getEncoder().encodeToString(("write:secret").getBytes());
+        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
 
-        mockMvc.perform(put("/api/deployments/{appName}/{appVersion}/{environment}", "appUnknown", "appVersion", "prod")
-                        .header("Authorization", basicAuthHeader)
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, "appUnknown", APP_VERSION, "prod")
+                        .header(AUTHORIZATION, basicAuthHeader)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk()); // 200
 
         // GET /api/deployments and assert empty list
-        MvcResult result = mockMvc.perform(get("/api/deployments")
+        MvcResult result = mockMvc.perform(get(API_DEPLOYMENTS)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -80,20 +95,20 @@ class DeploymentControllerTest extends ControllerTestBase {
     void putDeploymentAppDefined() throws Exception {
         // Save a contract to set up the test
         messageContractRepository.save(createContract(
-                "myAppName", "appVersion", "test", "test", MessageContractRole.CONSUMER));
+                MY_APP_NAME, APP_VERSION, "test", "test", MessageContractRole.CONSUMER));
 
         // PUT /api/deployments/{appName}/{appVersion}/{environment} with Basic Auth
-        String basicAuthHeader = "Basic " + Base64.getEncoder()
-                .encodeToString(("write:secret").getBytes());
+        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder()
+                .encodeToString((WRITE_SECRET).getBytes());
 
-        mockMvc.perform(put("/api/deployments/{appName}/{appVersion}/{environment}",
-                        "myAppName", "appVersion", "prod")
-                        .header("Authorization", basicAuthHeader)
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV,
+                        MY_APP_NAME, APP_VERSION, "prod")
+                        .header(AUTHORIZATION, basicAuthHeader)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isCreated()); // 201
 
         // GET /api/deployments and assert the list contains one deployment
-        MvcResult result = mockMvc.perform(get("/api/deployments")
+        MvcResult result = mockMvc.perform(get(API_DEPLOYMENTS)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -105,7 +120,7 @@ class DeploymentControllerTest extends ControllerTestBase {
         );
 
         assertThat(dtos).hasSize(1);
-        assertThat(dtos.getFirst().appName()).isEqualTo("myAppName");
+        assertThat(dtos.getFirst().appName()).isEqualTo(MY_APP_NAME);
     }
 
     @Test
@@ -118,25 +133,25 @@ class DeploymentControllerTest extends ControllerTestBase {
     void deleteDeploymentAppDefined() throws Exception {
         // Save a contract to set up the test
         messageContractRepository.save(createContract(
-                "myAppName", "appVersion", "test", "test", MessageContractRole.CONSUMER));
+                MY_APP_NAME, APP_VERSION, "test", "test", MessageContractRole.CONSUMER));
 
         // PUT /api/deployments/{appName}/{appVersion}/{environment} with Basic Auth
-        String basicAuthHeader = "Basic " + Base64.getEncoder()
-                .encodeToString(("write:secret").getBytes());
+        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder()
+                .encodeToString((WRITE_SECRET).getBytes());
 
-        mockMvc.perform(put("/api/deployments/{appName}/{appVersion}/{environment}",
-                        "myAppName", "appVersion", "prod")
-                        .header("Authorization", basicAuthHeader)
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV,
+                        MY_APP_NAME, APP_VERSION, "prod")
+                        .header(AUTHORIZATION, basicAuthHeader)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isCreated()); // 201
 
         // DELETE /api/deployments/{appName}/{environment} with Basic Auth
-        mockMvc.perform(delete("/api/deployments/{appName}/{environment}", "myAppName", "prod")
-                        .header("Authorization", basicAuthHeader))
+        mockMvc.perform(delete("/api/deployments/{appName}/{environment}", MY_APP_NAME, "prod")
+                        .header(AUTHORIZATION, basicAuthHeader))
                 .andExpect(status().isOk()); // 200
 
         // GET /api/deployments and assert the list is empty
-        MvcResult result = mockMvc.perform(get("/api/deployments")
+        MvcResult result = mockMvc.perform(get(API_DEPLOYMENTS)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andReturn();

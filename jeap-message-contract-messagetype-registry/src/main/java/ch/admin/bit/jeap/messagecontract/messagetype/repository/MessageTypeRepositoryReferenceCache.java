@@ -243,7 +243,7 @@ public class MessageTypeRepositoryReferenceCache {
 
     @SuppressWarnings("EmptyTryBlock")
     private void cloneBare(String uri, File cacheDir, CredentialsProvider credentials) throws GitAPIException {
-        try (Git _ = Git.cloneRepository()
+        try (var _ = Git.cloneRepository()
                 .setURI(uri)
                 .setDirectory(cacheDir)
                 .setBare(true)

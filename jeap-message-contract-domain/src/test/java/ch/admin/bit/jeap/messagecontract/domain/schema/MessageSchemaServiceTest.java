@@ -20,6 +20,11 @@ import static org.mockito.Mockito.*;
 
 class MessageSchemaServiceTest {
 
+    private static final String ACTIV_ZONE_ENTERED_EVENT = "ActivZoneEnteredEvent";
+    private static final String VERSION_1_0_0 = "1.0.0";
+    private static final String TOPIC = "topic";
+    private static final String MASTER = "master";
+
     private static TestRegistryRepo testRepo;
     private MessageSchemaService messageSchemaService;
 
@@ -50,7 +55,7 @@ class MessageSchemaServiceTest {
 
     @SuppressWarnings("resource")
     @Test
-    void loadSchemas_whenMultipleContractsForSameRegistryAreUploaded_thenShouldOnlyCloneRepositoryOnce() {
+    void loadSchemasWhenMultipleContractsForSameRegistryAreUploadedThenShouldOnlyCloneRepositoryOnce() {
         String repoUrl1 = "repoUrl1";
         String repoUrl2 = "repoUrl2";
         MessageContract contract1 = createContract(repoUrl1);
@@ -60,9 +65,9 @@ class MessageSchemaServiceTest {
         MessageTypeRepositoryFactory repoFactory = mock(MessageTypeRepositoryFactory.class);
         MessageTypeRepository repo = mock(MessageTypeRepository.class);
         when(repoFactory.cloneRepository(anyString())).thenReturn(repo);
-        MessageSchemaService messageSchemaService = new MessageSchemaService(repoFactory);
+        MessageSchemaService localMessageSchemaService = new MessageSchemaService(repoFactory);
 
-        messageSchemaService.loadSchemas(List.of(contract1, contract2, contract3, contract4));
+        localMessageSchemaService.loadSchemas(List.of(contract1, contract2, contract3, contract4));
 
         verify(repoFactory, times(1)).cloneRepository(repoUrl1);
         verify(repoFactory, times(1)).cloneRepository(repoUrl2);
@@ -72,13 +77,13 @@ class MessageSchemaServiceTest {
         return MessageContract.builder()
                 .appName("app")
                 .appVersion("1")
-                .messageType("ActivZoneEnteredEvent")
-                .messageTypeVersion("1.0.0")
-                .topic("topic")
+                .messageType(ACTIV_ZONE_ENTERED_EVENT)
+                .messageTypeVersion(VERSION_1_0_0)
+                .topic(TOPIC)
                 .role(MessageContractRole.CONSUMER)
                 .registryUrl(repoUrl)
                 .commitHash(testRepo.revision())
-                .branch("master")
+                .branch(MASTER)
                 .compatibilityMode(CompatibilityMode.BACKWARD)
                 .build();
     }
