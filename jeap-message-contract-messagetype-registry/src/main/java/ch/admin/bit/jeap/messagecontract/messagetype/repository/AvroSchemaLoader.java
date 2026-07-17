@@ -20,8 +20,10 @@ class AvroSchemaLoader {
             IdlFileParser idlFileParser = createIdlFileParser(schemaLocations);
             File schemaFile = schemaLocations.findSchemaFile(schemaFilename);
             return loadSchemaFile(idlFileParser, schemaFile);
-        } catch (IOException | ParseException ex) {
-            throw MessageTypeRepoException.schemaLoadingFailed(schemaFilename, ex);
+        } catch (IOException ex) {
+            throw MessageTypeRepoException.schemaLoadingFailed(schemaFilename, ex, true);
+        } catch (ParseException ex) {
+            throw MessageTypeRepoException.schemaLoadingFailed(schemaFilename, ex, false);
         }
     }
 

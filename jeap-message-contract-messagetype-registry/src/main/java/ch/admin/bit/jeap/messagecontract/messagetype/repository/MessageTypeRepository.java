@@ -140,6 +140,47 @@ public class MessageTypeRepository implements Closeable {
         return AvroSchemaLoader.loadSchemaAsJsonProtocol(schemaFilename, descriptor.getSchemaLocations());
     }
 
+    public List<String> getMessageTypeVersions(String branch, String commitReference, String messageTypeName,
+                                               String definingSystem) {
+        try {
+            checkoutAt(branch, commitReference);
+        } catch (Exception ex) {
+            throw MessageTypeRepoException.checkoutFailed(branch, commitReference, ex);
+        }
+
+        return findMessageTypeVersions(messageTypeName, definingSystem);
+    }
+
+    public MessageTypeSnapshot getMessageTypeSnapshot(String branch, String messageTypeName, String definingSystem) {
+        try {
+            checkoutAt(branch, null);
+            ObjectId revision = git.getRepository().resolve(HEAD);
+            if (revision == null) {
+                throw new IOException("HEAD does not resolve to a commit");
+            }
+            return new MessageTypeSnapshot(revision.name(), findMessageTypeVersions(messageTypeName, definingSystem));
+        } catch (GitAPIException | IOException ex) {
+            throw MessageTypeRepoException.checkoutFailed(branch, null, ex);
+        }
+    }
+
+    private List<String> findMessageTypeVersions(String messageTypeName, String definingSystem) {
+        return Stream.concat(getAllEventDescriptors().stream(), getAllCommandDescriptors().stream())
+                .filter(descriptor -> messageTypeName.equals(descriptor.getMessageTypeName()))
+                .filter(descriptor -> definingSystem.equalsIgnoreCase(descriptor.getDefiningSystem()))
+                .findFirst()
+                .orElseThrow(MessageTypeRepoException.messageTypeNotFound(messageTypeName))
+                .getVersions().stream()
+                .map(MessageTypeVersion::getVersion)
+                .toList();
+    }
+
+    public record MessageTypeSnapshot(String commitHash, List<String> versions) {
+        public MessageTypeSnapshot {
+            versions = List.copyOf(versions);
+        }
+    }
+
     private void checkoutAt(String branch, String commitReference) throws GitAPIException {
         long startNanos = System.nanoTime();
         log.info("checkoutAt: enter branch={} commit={}", branch, commitReference);
@@ -426,7 +467,11 @@ public class MessageTypeRepository implements Closeable {
 
     private Stream<File> getSystemDirs() {
         File descriptorDir = new File(gitRepoPath, "descriptor");
-        return Arrays.stream(Objects.requireNonNull(descriptorDir.list()))
+        String[] systemDirNames = descriptorDir.list();
+        if (systemDirNames == null) {
+            throw MessageTypeRepoException.invalidRepositoryStructure(descriptorDir.getAbsolutePath());
+        }
+        return Arrays.stream(systemDirNames)
                 .filter(name -> !name.equals(COMMON))
                 .map(name -> new File(descriptorDir, name));
     }

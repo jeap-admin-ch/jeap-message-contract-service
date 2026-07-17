@@ -92,5 +92,24 @@ public interface JpaMessageContractRepository extends CrudRepository<MessageCont
             """, nativeQuery = true)
     List<MessageContractInfo> findAllByEnvironment(@Param("environment") String environment);
 
+    @Query("""
+            select mc from MessageContract mc
+            where mc.deleted = false
+              and lower(mc.messageType) = :normalizedMessageType
+              and exists (
+                  select d.id from Deployment d
+                  where d.appName = mc.appName
+                    and d.appVersion = mc.appVersion
+                    and d.environment = :environment
+                    and d.createdAt = (
+                        select max(latest.createdAt) from Deployment latest
+                        where latest.appName = d.appName and latest.environment = d.environment
+                    )
+              )
+            """)
+    List<MessageContract> findCurrentlyDeployedByEnvironmentAndMessageType(
+            @Param("environment") String environment,
+            @Param("normalizedMessageType") String normalizedMessageType);
+
     List<MessageContractInfo> findAllByDeletedFalse();
 }

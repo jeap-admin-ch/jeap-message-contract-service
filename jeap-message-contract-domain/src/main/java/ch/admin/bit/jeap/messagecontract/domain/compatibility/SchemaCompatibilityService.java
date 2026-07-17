@@ -17,16 +17,14 @@ import java.util.List;
 public class SchemaCompatibilityService {
 
     public List<SchemaIncompatibility> validateCompatibility(MessageContract contract, MessageContract interactedWithContract) {
-        MessageContract readerContract;
-        MessageContract writerContract;
         if (contract.getRole() == MessageContractRole.CONSUMER) {
-            readerContract = contract;
-            writerContract = interactedWithContract;
-        } else {
-            readerContract = interactedWithContract;
-            writerContract = contract;
+            return validateReaderWriterCompatibility(contract, interactedWithContract);
         }
+        return validateReaderWriterCompatibility(interactedWithContract, contract);
+    }
 
+    public List<SchemaIncompatibility> validateReaderWriterCompatibility(MessageContract readerContract,
+                                                                          MessageContract writerContract) {
         return validateCompatibility(
                 MessageTypeSchema.fromMessageContract(readerContract),
                 MessageTypeSchema.fromMessageContract(writerContract));

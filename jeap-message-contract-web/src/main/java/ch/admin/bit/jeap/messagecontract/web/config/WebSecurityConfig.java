@@ -25,6 +25,7 @@ class WebSecurityConfig {
 
     private static final String WRITE_ROLE = "messagecontract-write";
     private static final String UPLOAD_CONTRACT_ROLE = "messagecontract-contract-upload";
+    private static final String READ_ROLE = "messagecontract-read";
 
     private final WebSecurityProperties webSecurityProperties;
 
@@ -39,6 +40,8 @@ class WebSecurityConfig {
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/contracts").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/deployments").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/renovate/**", "/api/deployments/compatibility/**")
+                        .hasAnyRole(READ_ROLE, WRITE_ROLE, UPLOAD_CONTRACT_ROLE)
                         .anyRequest().hasAnyRole(WRITE_ROLE, UPLOAD_CONTRACT_ROLE));
         return http.build();
     }
@@ -63,6 +66,15 @@ class WebSecurityConfig {
                             .withUsername(user.getUsername())
                             .password(user.getPassword())
                             .roles(UPLOAD_CONTRACT_ROLE)
+                            .build()).toList());
+        }
+
+        if (webSecurityProperties.getReadUsers() != null) {
+            users.addAll(webSecurityProperties.getReadUsers()
+                    .stream().map(user -> User
+                            .withUsername(user.getUsername())
+                            .password(user.getPassword())
+                            .roles(READ_ROLE)
                             .build()).toList());
         }
 

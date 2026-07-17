@@ -298,6 +298,25 @@ class MessageContractRepositoryTest {
     }
 
     @Test
+    void findCurrentlyDeployedContractsFiltersByMessageTypeAndUsesLatestDeployment() {
+        MessageContract app1v1 = createContract("app1", "v1", null, MASTER, MessageContractRole.CONSUMER, null);
+        MessageContract app1v2 = createContract("app1", "v2", null, MASTER, MessageContractRole.PRODUCER, null);
+        MessageContract otherType = createContract("app2", "v1", null, MASTER, MessageContractRole.PRODUCER,
+                null, TYPE2, null);
+        messageContractRepository.saveContracts(List.of(app1v1, app1v2, otherType));
+        deploymentRepository.save(Deployment.builder().appName("app1").appVersion("v1").environment("PROD").build());
+        deploymentRepository.save(Deployment.builder().appName("app1").appVersion("v2").environment("PROD").build());
+        deploymentRepository.save(Deployment.builder().appName("app2").appVersion("v1").environment("PROD").build());
+
+        List<MessageContract> contracts = messageContractRepository.findCurrentlyDeployedContracts(
+                "PROD", TEST_TYPE.toLowerCase());
+
+        assertThat(contracts).containsExactly(app1v2);
+        assertThat(messageContractRepository.findCurrentlyDeployedContracts("REF", TEST_TYPE.toLowerCase()))
+                .isEmpty();
+    }
+
+    @Test
     void existsByAppNameAndAppVersionContractDeletedContractNotReturned() {
         //given
         List<MessageContract> contracts = List.of(createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null));

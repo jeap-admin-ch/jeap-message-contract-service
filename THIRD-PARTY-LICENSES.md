@@ -29,6 +29,9 @@ Apache License Version 2.0
  * jackson-databind - [com.fasterxml.jackson.core:jackson-databind](https://github.com/FasterXML/jackson)
  * Jackson-dataformat-YAML - [com.fasterxml.jackson.dataformat:jackson-dataformat-yaml](https://github.com/FasterXML/jackson-dataformats-text)
  * Jackson datatype: JSR310 - [com.fasterxml.jackson.datatype:jackson-datatype-jsr310](https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310)
+ * docker-java-api - [com.github.docker-java:docker-java-api](https://github.com/docker-java/docker-java)
+ * docker-java-transport - [com.github.docker-java:docker-java-transport](https://github.com/docker-java/docker-java)
+ * docker-java-transport-zerodep - [com.github.docker-java:docker-java-transport-zerodep](https://github.com/docker-java/docker-java)
  * JavaEWAH - [com.googlecode.javaewah:JavaEWAH](https://github.com/lemire/javaewah)
  * json-path - [com.jayway.jsonpath:json-path](https://github.com/jayway/JsonPath)
  * Nimbus JOSE+JWT - [com.nimbusds:nimbus-jose-jwt](https://bitbucket.org/connect2id/nimbus-jose-jwt)
@@ -37,6 +40,7 @@ Apache License Version 2.0
  * JSON library from Android SDK - [com.vaadin.external.google:android-json](http://developer.android.com/sdk)
  * HikariCP - [com.zaxxer:HikariCP](https://github.com/brettwooldridge/HikariCP)
  * Apache Commons Codec - [commons-codec:commons-codec](https://commons.apache.org/proper/commons-codec/)
+ * Apache Commons IO - [commons-io:commons-io](https://commons.apache.org/proper/commons-io/)
  * Apache Commons IO - [commons-io:commons-io](https://commons.apache.org/proper/commons-io/)
  * Apache Commons Logging - [commons-logging:commons-logging](https://commons.apache.org/proper/commons-logging/)
  * context-propagation - [io.micrometer:context-propagation](https://github.com/micrometer-metrics/context-propagation)
@@ -77,6 +81,7 @@ Apache License Version 2.0
  * Jakarta Validation API - [jakarta.validation:jakarta.validation-api](https://beanvalidation.org)
  * Byte Buddy (without dependencies) - [net.bytebuddy:byte-buddy](https://bytebuddy.net/byte-buddy)
  * Byte Buddy agent - [net.bytebuddy:byte-buddy-agent](https://bytebuddy.net/byte-buddy-agent)
+ * Java Native Access - [net.java.dev.jna:jna](https://github.com/java-native-access/jna)
  * Logstash Logback Encoder - [net.logstash.logback:logstash-logback-encoder](https://github.com/logfellow/logstash-logback-encoder)
  * ASM based accessors helper used by json-smart - [net.minidev:accessors-smart](https://urielch.github.io/)
  * JSON Small and Fast Parser - [net.minidev:json-smart](https://urielch.github.io/)
@@ -104,6 +109,7 @@ Apache License Version 2.0
  * Hibernate Validator Engine - [org.hibernate.validator:hibernate-validator](https://hibernate.org/validator)
  * JBoss Logging 3 - [org.jboss.logging:jboss-logging](https://www.jboss.org)
  * IntelliJ IDEA Annotations - [org.jetbrains:annotations](http://www.jetbrains.org)
+ * JetBrains Java Annotations - [org.jetbrains:annotations](https://github.com/JetBrains/java-annotations)
  * Kotlin Stdlib - [org.jetbrains.kotlin:kotlin-stdlib](https://kotlinlang.org/)
  * JSpecify annotations - [org.jspecify:jspecify](http://jspecify.org/)
  * Objenesis - [org.objenesis:objenesis](http://objenesis.org/objenesis)
@@ -266,6 +272,11 @@ LGPL-2.1-only
  * Logback Classic Module - [ch.qos.logback:logback-classic](http://logback.qos.ch/logback-classic)
  * Logback Core Module - [ch.qos.logback:logback-core](http://logback.qos.ch/logback-core)
 
+LGPL-2.1-or-later
+-------------------------------
+
+ * Java Native Access - [net.java.dev.jna:jna](https://github.com/java-native-access/jna)
+
 MIT License
 -------------------------------
 
@@ -273,8 +284,14 @@ MIT License
  * mockito-core - [org.mockito:mockito-core](https://github.com/mockito/mockito)
  * mockito-junit-jupiter - [org.mockito:mockito-junit-jupiter](https://github.com/mockito/mockito)
  * Project Lombok - [org.projectlombok:lombok](https://projectlombok.org)
+ * Duct Tape - [org.rnorth.duct-tape:duct-tape](https://github.com/rnorth/duct-tape)
  * JUL to SLF4J bridge - [org.slf4j:jul-to-slf4j](http://www.slf4j.org)
  * SLF4J API Module - [org.slf4j:slf4j-api](http://www.slf4j.org)
+ * Testcontainers Core - [org.testcontainers:testcontainers](https://java.testcontainers.org)
+ * Testcontainers :: Database-Commons - [org.testcontainers:testcontainers-database-commons](https://java.testcontainers.org)
+ * Testcontainers :: JDBC - [org.testcontainers:testcontainers-jdbc](https://java.testcontainers.org)
+ * Testcontainers :: JUnit Jupiter Extension - [org.testcontainers:testcontainers-junit-jupiter](https://java.testcontainers.org)
+ * Testcontainers :: JDBC :: PostgreSQL - [org.testcontainers:testcontainers-postgresql](https://java.testcontainers.org)
  * webjars-locator-lite - [org.webjars:webjars-locator-lite](https://webjars.org)
 
 Mozilla Public License, Version 2.0

@@ -4,16 +4,20 @@ import java.io.File;
 import java.util.function.Supplier;
 
 public class MessageTypeRepoException extends RuntimeException {
+    private final boolean infrastructureFailure;
+
     private MessageTypeRepoException(String message) {
         super(message);
+        this.infrastructureFailure = false;
     }
 
-    private MessageTypeRepoException(String message, Throwable cause) {
+    private MessageTypeRepoException(String message, Throwable cause, boolean infrastructureFailure) {
         super(message, cause);
+        this.infrastructureFailure = infrastructureFailure;
     }
 
     static MessageTypeRepoException cloneFailed(String gitUri, Throwable cause) {
-        return new MessageTypeRepoException("Cannot clone message type repository %s" + gitUri, cause);
+        return new MessageTypeRepoException("Cannot clone message type repository %s".formatted(gitUri), cause, true);
     }
 
     static MessageTypeRepoException missingDescriptor(String path) {
@@ -23,13 +27,17 @@ public class MessageTypeRepoException extends RuntimeException {
 
     static MessageTypeRepoException descriptorParsingFailed(String path, Throwable cause) {
         String message = "Failed to parse message type descriptor " + path;
-        return new MessageTypeRepoException(message, cause);
+        return new MessageTypeRepoException(message, cause, false);
     }
 
-    static MessageTypeRepoException schemaLoadingFailed(String schemaFile, Exception ex) {
+    static MessageTypeRepoException schemaLoadingFailed(String schemaFile, Exception ex, boolean infrastructureFailure) {
         return new MessageTypeRepoException(
                 "Failed to load schema from file %s".formatted(schemaFile),
-                ex);
+                ex, infrastructureFailure);
+    }
+
+    static MessageTypeRepoException invalidRepositoryStructure(String path) {
+        return new MessageTypeRepoException("Message type repository does not contain a readable directory " + path);
     }
 
     static MessageTypeRepoException missingSchema(String schemaName, File messageTypeDir, File systemCommonDir, File rootCommonDir) {
@@ -49,6 +57,10 @@ public class MessageTypeRepoException extends RuntimeException {
 
     public static MessageTypeRepoException checkoutFailed(String branch, String commitReference, Exception ex) {
         return new MessageTypeRepoException(
-                "Failed to checkout branch %s or commit %s".formatted(branch, commitReference), ex);
+                "Failed to checkout branch %s or commit %s".formatted(branch, commitReference), ex, true);
+    }
+
+    public boolean isInfrastructureFailure() {
+        return infrastructureFailure;
     }
 }

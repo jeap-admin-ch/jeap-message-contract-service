@@ -12,6 +12,9 @@ jeap:
       write-users:
         - username: write
           password: "{noop}secret"
+      read-users:
+        - username: read
+          password: "{noop}secret"
 
 logging.level:
   ch.admin.bit.jeap.messagecontract: debug

@@ -65,6 +65,10 @@ public class MessageContractRepository {
         return jpaRepository.findAllByEnvironment(environment);
     }
 
+    public List<MessageContract> findCurrentlyDeployedContracts(String environment, String normalizedMessageType) {
+        return jpaRepository.findCurrentlyDeployedByEnvironmentAndMessageType(environment, normalizedMessageType);
+    }
+
     public List<MessageContractInfo> findAllMessageContractInfos() {
         return jpaRepository.findAllByDeletedFalse();
     }

@@ -1,6 +1,7 @@
 package ch.admin.bit.jeap.messagecontract.web.api;
 
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepoException;
+import ch.admin.bit.jeap.messagecontract.domain.renovate.RenovateRegistryException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageConversionException;
@@ -18,9 +19,16 @@ public class RestControllerExceptionHandler extends ResponseEntityExceptionHandl
     @ExceptionHandler({
             ConstraintViolationException.class,
             HttpMessageConversionException.class,
+            IllegalArgumentException.class,
             MessageTypeRepoException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void logBadRequestReason(Exception ex) {
         log.warn(ex.getMessage(), ex);
+    }
+
+    @ExceptionHandler(RenovateRegistryException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public void logRenovateRegistryFailure(RenovateRegistryException ex) {
+        log.error("Renovate registry request failed: {}", ex.getMessage(), ex);
     }
 }

@@ -21,6 +21,9 @@ public class WebSecurityProperties {
     @NestedConfigurationProperty
     private List<UserProperty> uploadContractUsers;
 
+    @NestedConfigurationProperty
+    private List<UserProperty> readUsers;
+
     @PostConstruct
     void init() {
         log.info("Load security configuration: {}", this);

@@ -8,6 +8,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > - Spring Boot 3 maintenance (bug fixes, patches, and regular updates) continues on branch `release/springboot3`.
 > - The Spring Boot 4 upgrade process happens on the `master` branch, with the goal of releasing Spring Boot 4 compatible versions of all jeap components in a single major release.
 
+## [8.4.0] - 2026-07-27
+
+### Added
+
+- Added the read-only `GET /api/renovate/message-types/{packageName}` datasource endpoint for returning newer
+  message-type versions that are compatible with currently deployed contracts.
+- Added global and application-specific compatibility modes with selectable deployment environments. Application-specific
+  checks use the deployed application's role and topic to validate candidates against opposite-role counterparts.
+- Added candidate discovery from Maven coordinates and immutable message-type registry snapshots, including support for
+  canonical `definingSystem` and legacy event descriptor fields.
+- Added configurable `messagecontract-read` users for compatibility queries. Expected incompatibilities and missing
+  contract data return an empty release list, while registry infrastructure failures return HTTP 503.
+- Added documentation for the Renovate integration, configuration, API behavior, and local verification.
+
+### Tests
+
+- Added domain compatibility, HTTP security and validation, registry snapshot, and persistence query coverage.
+
 ## [8.3.0] - 2026-07-26
 
 ### Dependencies

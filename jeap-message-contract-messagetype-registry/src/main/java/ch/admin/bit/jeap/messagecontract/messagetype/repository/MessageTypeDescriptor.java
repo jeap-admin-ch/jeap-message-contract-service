@@ -7,6 +7,8 @@ public interface MessageTypeDescriptor {
 
     String getMessageTypeName();
 
+    String getDefiningSystem();
+
     List<MessageTypeVersion> getVersions();
 
     default Optional<MessageTypeVersion> findVersion(String messageTypeVersion) {

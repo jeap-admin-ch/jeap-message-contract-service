@@ -13,6 +13,7 @@ public class CommandDescriptor implements MessageTypeDescriptor {
     @JsonAlias("commandName")
     @NonNull
     private String messageTypeName;
+    private String definingSystem;
     private List<MessageTypeVersion> versions;
     private SchemaLocations schemaLocations;
 

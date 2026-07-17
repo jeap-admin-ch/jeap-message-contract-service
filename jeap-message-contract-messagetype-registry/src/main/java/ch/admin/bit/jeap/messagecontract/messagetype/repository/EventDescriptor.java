@@ -13,6 +13,8 @@ public class EventDescriptor implements MessageTypeDescriptor {
     @JsonAlias("eventName")
     @NonNull
     private String messageTypeName;
+    @JsonAlias("publishingSystem")
+    private String definingSystem;
     private List<MessageTypeVersion> versions;
     private SchemaLocations schemaLocations;
 

@@ -12,6 +12,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Map;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -79,6 +80,19 @@ class MessageTypeRepositoryTest {
             String schemaJson2 = messageTypeRepository
                     .getSchemaAsAvroProtocolJson(MASTER, null, ACTIV_ZONE_ENTERED_EVENT, VERSION_2_0_0);
             assertTrue(schemaJson2.contains("JourneyActivationRequestReference"), "JourneyActivationRequestReference (only present in 2.0.0) not found");
+        }
+    }
+
+    @Test
+    void messageTypeSnapshotPinsVersionsToResolvedFullRevisionAndIsImmutable() {
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            MessageTypeRepository.MessageTypeSnapshot snapshot = messageTypeRepository
+                    .getMessageTypeSnapshot(MASTER, ACTIV_ZONE_ENTERED_EVENT, "activ");
+
+            assertEquals(repo.revision(), snapshot.commitHash());
+            assertEquals(List.of(VERSION_1_0_0, VERSION_2_0_0), snapshot.versions());
+            assertThrows(UnsupportedOperationException.class, () -> snapshot.versions().add("3.0.0"));
         }
     }
 
