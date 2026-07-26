@@ -28,19 +28,19 @@
     <parent>
         <groupId>ch.admin.bit.jeap</groupId>
         <artifactId>jeap-spring-boot-parent</artifactId>
-        <version>37.4.0</version>
+        <version>37.6.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <artifactId>jeap-message-contract-service</artifactId>
     <name>${project.groupId}:${project.artifactId}</name>
-    <version>8.2.0-SNAPSHOT</version>
+    <version>8.3.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <properties>
         <commons-io.version>2.22.0</commons-io.version>
         <nimbus-jose-jwt.version>10.9.1</nimbus-jose-jwt.version>
-        <jgit.version>7.7.0.202606012155-r</jgit.version>
+        <jgit.version>7.7.1.202607240634-r</jgit.version>
         <maven.javadoc.skip>false</maven.javadoc.skip>
     </properties>
 
@@ -68,27 +68,27 @@
             <dependency>
                 <groupId>ch.admin.bit.jeap</groupId>
                 <artifactId>jeap-message-contract-domain</artifactId>
-                <version>8.2.0-SNAPSHOT</version>
+                <version>8.3.0-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>ch.admin.bit.jeap</groupId>
                 <artifactId>jeap-message-contract-persistence</artifactId>
-                <version>8.2.0-SNAPSHOT</version>
+                <version>8.3.0-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>ch.admin.bit.jeap</groupId>
                 <artifactId>jeap-message-contract-messagetype-registry</artifactId>
-                <version>8.2.0-SNAPSHOT</version>
+                <version>8.3.0-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>ch.admin.bit.jeap</groupId>
                 <artifactId>jeap-message-contract-web</artifactId>
-                <version>8.2.0-SNAPSHOT</version>
+                <version>8.3.0-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>ch.admin.bit.jeap</groupId>
                 <artifactId>jeap-message-contract-test</artifactId>
-                <version>8.2.0-SNAPSHOT</version>
+                <version>8.3.0-SNAPSHOT</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
