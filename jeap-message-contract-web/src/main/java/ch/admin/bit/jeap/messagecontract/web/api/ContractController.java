@@ -1,10 +1,12 @@
 package ch.admin.bit.jeap.messagecontract.web.api;
 
 import ch.admin.bit.jeap.messagecontract.domain.MessageContractService;
+import ch.admin.bit.jeap.messagecontract.domain.MessageContractVersionService;
 import ch.admin.bit.jeap.messagecontract.persistence.MessageContractInfo;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.CreateMessageContractsDto;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.MessageContractDto;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.MessageContractRole;
+import ch.admin.bit.jeap.messagecontract.web.api.dto.MessageContractVersionStatusDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
@@ -33,6 +35,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 public class ContractController {
 
     private final MessageContractService messageContractService;
+    private final MessageContractVersionService messageContractVersionService;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "List all contracts")
@@ -46,6 +49,14 @@ public class ContractController {
 
         return contracts.stream()
                 .map(MessageContractDto::fromDomainObject)
+                .toList();
+    }
+
+    @GetMapping(path = "/version-status", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "List deployed message contracts with their latest available message version")
+    public List<MessageContractVersionStatusDto> getVersionStatus(@NotBlank @RequestParam(name = "env") String environment) {
+        return messageContractVersionService.getVersionStatus(environment).stream()
+                .map(MessageContractVersionStatusDto::fromDomainObject)
                 .toList();
     }
 

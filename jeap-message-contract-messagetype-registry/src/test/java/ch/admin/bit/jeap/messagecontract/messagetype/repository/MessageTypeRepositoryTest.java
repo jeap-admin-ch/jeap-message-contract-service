@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Map;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -93,6 +94,18 @@ class MessageTypeRepositoryTest {
             assertEquals(repo.revision(), snapshot.commitHash());
             assertEquals(List.of(VERSION_1_0_0, VERSION_2_0_0), snapshot.versions());
             assertThrows(UnsupportedOperationException.class, () -> snapshot.versions().add("3.0.0"));
+        }
+    }
+
+    @Test
+    void getsVersionsForSeveralMessageTypesInOneCheckout() {
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(
+                new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            Map<String, List<String>> versions = messageTypeRepository.getMessageTypeVersions(
+                    MASTER, Set.of(ACTIV_ZONE_ENTERED_EVENT));
+
+            assertEquals(List.of(VERSION_1_0_0, VERSION_2_0_0), versions.get(ACTIV_ZONE_ENTERED_EVENT));
         }
     }
 

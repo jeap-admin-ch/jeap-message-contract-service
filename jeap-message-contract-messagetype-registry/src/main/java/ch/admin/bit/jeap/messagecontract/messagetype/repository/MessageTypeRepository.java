@@ -25,9 +25,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static ch.admin.bit.jeap.messagecontract.messagetype.repository.Elapsed.elapsedMs;
@@ -162,6 +166,36 @@ public class MessageTypeRepository implements Closeable {
         } catch (GitAPIException | IOException ex) {
             throw MessageTypeRepoException.checkoutFailed(branch, null, ex);
         }
+    }
+
+    public Map<String, List<String>> getMessageTypeVersions(String branch, Collection<String> messageTypeNames) {
+        try {
+            checkoutAt(branch, null);
+        } catch (GitAPIException ex) {
+            throw MessageTypeRepoException.checkoutFailed(branch, null, ex);
+        }
+
+        Set<String> requestedNames = Set.copyOf(messageTypeNames);
+        Map<String, List<MessageTypeDescriptor>> descriptors = Stream.concat(
+                        getAllEventDescriptors().stream(), getAllCommandDescriptors().stream())
+                .filter(descriptor -> requestedNames.contains(descriptor.getMessageTypeName()))
+                .collect(java.util.stream.Collectors.groupingBy(MessageTypeDescriptor::getMessageTypeName));
+
+        return requestedNames.stream().collect(java.util.stream.Collectors.toMap(
+                Function.identity(),
+                messageTypeName -> getUnambiguousDescriptor(descriptors, messageTypeName).getVersions().stream()
+                        .map(MessageTypeVersion::getVersion)
+                        .toList()));
+    }
+
+    private static MessageTypeDescriptor getUnambiguousDescriptor(
+            Map<String, List<MessageTypeDescriptor>> descriptors, String messageTypeName) {
+        List<MessageTypeDescriptor> matches = Optional.ofNullable(descriptors.get(messageTypeName))
+                .orElseThrow(MessageTypeRepoException.messageTypeNotFound(messageTypeName));
+        if (matches.size() != 1) {
+            throw MessageTypeRepoException.ambiguousMessageType(messageTypeName);
+        }
+        return matches.getFirst();
     }
 
     private List<String> findMessageTypeVersions(String messageTypeName, String definingSystem) {

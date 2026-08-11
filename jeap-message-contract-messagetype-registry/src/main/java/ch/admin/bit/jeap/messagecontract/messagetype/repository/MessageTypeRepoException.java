@@ -50,6 +50,11 @@ public class MessageTypeRepoException extends RuntimeException {
                 "Message type %s not found in message type registry".formatted(messageTypeName));
     }
 
+    static MessageTypeRepoException ambiguousMessageType(String messageTypeName) {
+        return new MessageTypeRepoException(
+                "Message type %s is ambiguous in message type registry".formatted(messageTypeName));
+    }
+
     static Supplier<MessageTypeRepoException> messageTypeVersionNotFound(String messageTypeName, String messageTypeVersion) {
         return () -> new MessageTypeRepoException(
                 "Version %s for message type %s not found in message type descriptor".formatted(messageTypeVersion, messageTypeName));

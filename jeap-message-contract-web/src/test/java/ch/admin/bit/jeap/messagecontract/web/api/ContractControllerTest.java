@@ -22,6 +22,7 @@ import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 class ContractControllerTest extends ControllerTestBase {
 
@@ -30,6 +31,7 @@ class ContractControllerTest extends ControllerTestBase {
     private static final String API_DEPLOYMENTS_APP_ENV = "/api/deployments/{appName}/{appVersion}/{environment}";
     private static final String AUTHORIZATION = "Authorization";
     private static final String SECRET = "secret";
+    private static final String READ = "read";
     private static final String WRITE = "write";
     private static final String TEST_TOPIC = "test-topic";
     private static final String TOPIC = "topic";
@@ -411,6 +413,36 @@ class ContractControllerTest extends ControllerTestBase {
         assertFalse(refDtosAfter.contains(contract1));
         assertFalse(refDtosAfter.contains(contract2));
         assertTrue(refDtosAfter.contains(contract3));
+    }
+
+    @Test
+    @SneakyThrows
+    void getVersionStatusRequiresAuthentication() {
+        mockMvc.perform(get(API_CONTRACTS + "/version-status")
+                        .param("env", "prod"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @SneakyThrows
+    void getVersionStatusReturnsLatestRegistryVersionForReadUser() {
+        MessageContractDto contract = new MessageContractDto(MY_APP_NAME, VERSION1, ACTIV_ZONE_ENTERED_EVENT,
+                VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER, repoUrl, null, MASTER,
+                CompatibilityMode.BACKWARD, null);
+        putContracts(MY_APP_NAME, VERSION1, new CreateMessageContractsDto(List.of(createNew(contract))));
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, MY_APP_NAME, VERSION1, "prod")
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get(API_CONTRACTS + "/version-status")
+                        .param("env", "prod")
+                        .header(AUTHORIZATION, basicAuth(READ, SECRET))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].appName").value(MY_APP_NAME))
+                .andExpect(jsonPath("$[0].usedVersion").value(VERSION_1_0_0))
+                .andExpect(jsonPath("$[0].latestVersion").value(VERSION_2_0_0))
+                .andExpect(jsonPath("$[0].upToDate").value(false));
     }
 
     private NewMessageContractDto createNew(MessageContractDto contractDto) {

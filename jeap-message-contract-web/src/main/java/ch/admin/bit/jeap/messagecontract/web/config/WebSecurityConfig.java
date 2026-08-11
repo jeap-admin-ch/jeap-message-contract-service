@@ -39,6 +39,8 @@ class WebSecurityConfig {
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/contracts").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/contracts/version-status")
+                        .hasAnyRole(READ_ROLE, WRITE_ROLE, UPLOAD_CONTRACT_ROLE)
                         .requestMatchers(HttpMethod.GET, "/api/deployments").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/renovate/**", "/api/deployments/compatibility/**")
                         .hasAnyRole(READ_ROLE, WRITE_ROLE, UPLOAD_CONTRACT_ROLE)
