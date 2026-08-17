@@ -1,5 +1,6 @@
 package ch.admin.bit.jeap.messagecontract.domain.renovate;
 
+import ch.admin.bit.jeap.messagecontract.domain.SemanticVersion;
 import ch.admin.bit.jeap.messagecontract.domain.compatibility.SchemaCompatibilityService;
 import ch.admin.bit.jeap.messagecontract.domain.schema.MessageSchemaService;
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepository;
@@ -16,16 +17,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class RenovateCompatibilityService {
-
-    private static final Pattern SEMANTIC_VERSION = Pattern.compile("(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)");
-    private static final Pattern MAVEN_COORDINATE = Pattern.compile(
-            "[A-Za-z0-9_]+(?:[.-][A-Za-z0-9_]+)*\\.messagetype\\.[A-Za-z0-9_]+:[A-Za-z0-9_]+(?:[.-][A-Za-z0-9_]+)*");
 
     private final MessageContractRepository contractRepository;
     private final MessageTypeRepositoryFactory repositoryFactory;
@@ -47,12 +43,7 @@ public class RenovateCompatibilityService {
         long startNanos = System.nanoTime();
         MavenCoordinate coordinate = MavenCoordinate.parse(packageName);
         SemanticVersion current = SemanticVersion.parse(currentValue);
-        if (environment == null || environment.isBlank()) {
-            throw new IllegalArgumentException("Environment must not be blank");
-        }
-        if (appName != null && appName.isBlank()) {
-            throw new IllegalArgumentException("Application name must not be blank when supplied");
-        }
+        validateRequest(appName, environment);
         String normalizedEnvironment = environment.toUpperCase(Locale.ROOT);
         List<MessageContract> prodContracts = contractRepository.findCurrentlyDeployedContracts(
                 normalizedEnvironment, coordinate.normalizedMessageType());
@@ -107,6 +98,15 @@ public class RenovateCompatibilityService {
                 packageName, currentValue, normalizedEnvironment, prodContracts.size(), snapshot.versions().size(), releases.size(),
                 (System.nanoTime() - startNanos) / 1_000_000);
         return releases;
+    }
+
+    private static void validateRequest(String appName, String environment) {
+        if (environment == null || environment.isBlank()) {
+            throw new IllegalArgumentException("Environment must not be blank");
+        }
+        if (appName != null && appName.isBlank()) {
+            throw new IllegalArgumentException("Application name must not be blank when supplied");
+        }
     }
 
     private static Optional<MessageContract> registryContract(List<MessageContract> contracts) {
@@ -204,18 +204,49 @@ public class RenovateCompatibilityService {
         private static final String MESSAGE_TYPE_GROUP_MARKER = ".messagetype.";
 
         private static MavenCoordinate parse(String packageName) {
-            if (packageName == null || !MAVEN_COORDINATE.matcher(packageName).matches()) {
+            if (packageName == null) {
                 throw new IllegalArgumentException("Expected a message-type Maven coordinate groupId:artifactId");
             }
             String[] parts = packageName.split(":", -1);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("Expected a message-type Maven coordinate groupId:artifactId");
+            }
             int markerIndex = parts[0].indexOf(MESSAGE_TYPE_GROUP_MARKER);
             String definingSystem = markerIndex < 0
                     ? ""
                     : parts[0].substring(markerIndex + MESSAGE_TYPE_GROUP_MARKER.length());
-            if (markerIndex <= 0 || definingSystem.isBlank() || definingSystem.contains(".")) {
+            String groupPrefix = markerIndex < 0 ? "" : parts[0].substring(0, markerIndex);
+            if (markerIndex <= 0 || !isSegmentedIdentifier(groupPrefix)
+                    || !isIdentifier(definingSystem) || !isSegmentedIdentifier(parts[1])) {
                 throw new IllegalArgumentException("Expected a message-type Maven coordinate groupId:artifactId");
             }
             return new MavenCoordinate(parts[1], definingSystem);
+        }
+
+        private static boolean isSegmentedIdentifier(String value) {
+            boolean separator = true;
+            for (int index = 0; index < value.length(); index++) {
+                char character = value.charAt(index);
+                if (isIdentifierCharacter(character)) {
+                    separator = false;
+                } else if ((character == '.' || character == '-') && !separator) {
+                    separator = true;
+                } else {
+                    return false;
+                }
+            }
+            return !separator;
+        }
+
+        private static boolean isIdentifier(String value) {
+            return !value.isEmpty() && value.chars().allMatch(character -> isIdentifierCharacter((char) character));
+        }
+
+        private static boolean isIdentifierCharacter(char character) {
+            return character >= 'A' && character <= 'Z'
+                    || character >= 'a' && character <= 'z'
+                    || character >= '0' && character <= '9'
+                    || character == '_';
         }
 
         private String normalizedMessageType() {
@@ -227,26 +258,4 @@ public class RenovateCompatibilityService {
         }
     }
 
-    private record SemanticVersion(String value, int major, int minor, int patch) implements Comparable<SemanticVersion> {
-        private static SemanticVersion parse(String value) {
-            if (value == null || !SEMANTIC_VERSION.matcher(value).matches()) {
-                throw new IllegalArgumentException("Expected semantic version x.y.z: " + value);
-            }
-            String[] parts = value.split("\\.", -1);
-            try {
-                return new SemanticVersion(value, Integer.parseInt(parts[0]), Integer.parseInt(parts[1]),
-                        Integer.parseInt(parts[2]));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException("Expected semantic version x.y.z: " + value, ex);
-            }
-        }
-
-        @Override
-        public int compareTo(SemanticVersion other) {
-            return Comparator.comparingInt(SemanticVersion::major)
-                    .thenComparingInt(SemanticVersion::minor)
-                    .thenComparingInt(SemanticVersion::patch)
-                    .compare(this, other);
-        }
-    }
 }

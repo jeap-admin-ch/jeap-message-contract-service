@@ -14,14 +14,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 public class MessageContractVersionService {
-
-    private static final Pattern SEMANTIC_VERSION = Pattern.compile("(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)");
 
     private final MessageContractRepository contractRepository;
     private final MessageTypeRepositoryFactory repositoryFactory;
@@ -95,28 +92,4 @@ public class MessageContractVersionService {
     private record RegistryReference(String url, String branch) {
     }
 
-    private record SemanticVersion(String value, int major, int minor, int patch)
-            implements Comparable<SemanticVersion> {
-
-        private static SemanticVersion parse(String value) {
-            if (value == null || !SEMANTIC_VERSION.matcher(value).matches()) {
-                throw new IllegalArgumentException("Expected semantic version x.y.z: " + value);
-            }
-            String[] parts = value.split("\\.", -1);
-            try {
-                return new SemanticVersion(value, Integer.parseInt(parts[0]), Integer.parseInt(parts[1]),
-                        Integer.parseInt(parts[2]));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException("Expected semantic version x.y.z: " + value, ex);
-            }
-        }
-
-        @Override
-        public int compareTo(SemanticVersion other) {
-            return Comparator.comparingInt(SemanticVersion::major)
-                    .thenComparingInt(SemanticVersion::minor)
-                    .thenComparingInt(SemanticVersion::patch)
-                    .compare(this, other);
-        }
-    }
 }

@@ -57,6 +57,8 @@ class RenovateCompatibilityServiceUnitTest {
         return Stream.of(
                 Arguments.of("not-a-coordinate", "1.0.0", "PROD"),
                 Arguments.of("ch.admin.bit.jeap.messagetype.activ:bad artifact", "1.0.0", "PROD"),
+                Arguments.of("ch..admin.bit.jeap.messagetype.activ:artifact", "1.0.0", "PROD"),
+                Arguments.of("ch.admin.bit.jeap.messagetype.activ:bad..artifact", "1.0.0", "PROD"),
                 Arguments.of(PACKAGE_NAME, "1.0", "PROD"),
                 Arguments.of(PACKAGE_NAME, "-1.0.0", "PROD"),
                 Arguments.of(PACKAGE_NAME, "01.0.0", "PROD"),
