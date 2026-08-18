@@ -188,6 +188,14 @@ public class MessageTypeRepository implements Closeable {
                         .toList()));
     }
 
+    public Map<String, List<String>> getMessageTypeVersionsFromDefaultBranch(Collection<String> messageTypeNames) {
+        try {
+            return getMessageTypeVersions(git.getRepository().getBranch(), messageTypeNames);
+        } catch (IOException ex) {
+            throw MessageTypeRepoException.checkoutFailed(null, null, ex);
+        }
+    }
+
     private static MessageTypeDescriptor getUnambiguousDescriptor(
             Map<String, List<MessageTypeDescriptor>> descriptors, String messageTypeName) {
         List<MessageTypeDescriptor> matches = Optional.ofNullable(descriptors.get(messageTypeName))

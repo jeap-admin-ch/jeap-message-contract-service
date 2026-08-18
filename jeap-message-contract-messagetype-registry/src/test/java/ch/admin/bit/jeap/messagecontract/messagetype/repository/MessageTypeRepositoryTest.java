@@ -98,12 +98,12 @@ class MessageTypeRepositoryTest {
     }
 
     @Test
-    void getsVersionsForSeveralMessageTypesInOneCheckout() {
+    void getsVersionsForSeveralMessageTypesFromDefaultBranch() {
         MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(
                 new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
         try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
-            Map<String, List<String>> versions = messageTypeRepository.getMessageTypeVersions(
-                    MASTER, Set.of(ACTIV_ZONE_ENTERED_EVENT));
+            Map<String, List<String>> versions = messageTypeRepository
+                    .getMessageTypeVersionsFromDefaultBranch(Set.of(ACTIV_ZONE_ENTERED_EVENT));
 
             assertEquals(List.of(VERSION_1_0_0, VERSION_2_0_0), versions.get(ACTIV_ZONE_ENTERED_EVENT));
         }

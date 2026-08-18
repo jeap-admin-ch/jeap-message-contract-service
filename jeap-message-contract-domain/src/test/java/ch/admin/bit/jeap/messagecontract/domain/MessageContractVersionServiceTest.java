@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,11 +27,12 @@ class MessageContractVersionServiceTest {
     private MessageTypeRepository messageTypeRepository;
 
     @Test
-    void returnsLatestSemanticVersionForDeployedContracts() {
+    void usesRegistryDefaultBranchRegardlessOfContractBranch() {
         MessageContractInfo contract = contract("test-service", "TestEvent", "1.9.0");
+        lenient().when(contract.getBranch()).thenReturn("story/deleted-feature-branch");
         when(contractRepository.findMessageContractInfosByEnvironment("PROD")).thenReturn(List.of(contract));
         when(repositoryFactory.cloneRepository("registry-url")).thenReturn(messageTypeRepository);
-        when(messageTypeRepository.getMessageTypeVersions("master", java.util.Set.of("TestEvent")))
+        when(messageTypeRepository.getMessageTypeVersionsFromDefaultBranch(java.util.Set.of("TestEvent")))
                 .thenReturn(Map.of("TestEvent", List.of("1.10.0", "1.9.0")));
 
         MessageContractVersionService service = new MessageContractVersionService(contractRepository, repositoryFactory);
@@ -45,6 +45,7 @@ class MessageContractVersionServiceTest {
                     assertThat(status.upToDate()).isFalse();
                 });
         verify(repositoryFactory).cloneRepository("registry-url");
+        verify(contract, never()).getBranch();
     }
 
     @Test
@@ -52,7 +53,7 @@ class MessageContractVersionServiceTest {
         MessageContractInfo contract = contract("test-service", "TestEvent", "1.10.0");
         when(contractRepository.findMessageContractInfosByEnvironment("PROD")).thenReturn(List.of(contract));
         when(repositoryFactory.cloneRepository("registry-url")).thenReturn(messageTypeRepository);
-        when(messageTypeRepository.getMessageTypeVersions("master", java.util.Set.of("TestEvent")))
+        when(messageTypeRepository.getMessageTypeVersionsFromDefaultBranch(java.util.Set.of("TestEvent")))
                 .thenReturn(Map.of("TestEvent", List.of("1.9.0", "1.10.0")));
 
         MessageContractVersionService service = new MessageContractVersionService(contractRepository, repositoryFactory);
@@ -62,7 +63,7 @@ class MessageContractVersionServiceTest {
     }
 
     @Test
-    void translatesRegistryInfrastructureFailure() {
+    void skipsRegistryInfrastructureFailure() {
         MessageContractInfo contract = mock(MessageContractInfo.class);
         when(contract.getRegistryUrl()).thenReturn("registry-url");
         when(contractRepository.findMessageContractInfosByEnvironment("PROD")).thenReturn(List.of(contract));
@@ -71,13 +72,11 @@ class MessageContractVersionServiceTest {
 
         MessageContractVersionService service = new MessageContractVersionService(contractRepository, repositoryFactory);
 
-        assertThatThrownBy(() -> service.getVersionStatus("PROD"))
-                .isInstanceOf(MessageContractRegistryException.class)
-                .hasMessageContaining("temporarily unavailable");
+        assertThat(service.getVersionStatus("PROD")).isEmpty();
     }
 
     @Test
-    void translatesUnexpectedRegistryRuntimeFailure() {
+    void skipsUnexpectedRegistryRuntimeFailure() {
         MessageContractInfo contract = mock(MessageContractInfo.class);
         when(contract.getRegistryUrl()).thenReturn("registry-url");
         when(contractRepository.findMessageContractInfosByEnvironment("PROD")).thenReturn(List.of(contract));
@@ -85,9 +84,44 @@ class MessageContractVersionServiceTest {
 
         MessageContractVersionService service = new MessageContractVersionService(contractRepository, repositoryFactory);
 
-        assertThatThrownBy(() -> service.getVersionStatus("PROD"))
-                .isInstanceOf(MessageContractRegistryException.class)
-                .hasCauseInstanceOf(IllegalStateException.class);
+        assertThat(service.getVersionStatus("PROD")).isEmpty();
+    }
+
+    @Test
+    void returnsStatusesFromAvailableRegistriesWhenAnotherRegistryFails() {
+        MessageContractInfo availableContract = contract("test-service", "TestEvent", "1.9.0");
+        MessageContractInfo unavailableContract = mock(MessageContractInfo.class);
+        when(unavailableContract.getRegistryUrl()).thenReturn("unavailable-registry");
+        when(contractRepository.findMessageContractInfosByEnvironment("PROD"))
+                .thenReturn(List.of(availableContract, unavailableContract));
+        when(repositoryFactory.cloneRepository("registry-url")).thenReturn(messageTypeRepository);
+        when(repositoryFactory.cloneRepository("unavailable-registry"))
+                .thenThrow(new IllegalStateException("clone failed"));
+        when(messageTypeRepository.getMessageTypeVersionsFromDefaultBranch(java.util.Set.of("TestEvent")))
+                .thenReturn(Map.of("TestEvent", List.of("1.9.0", "1.10.0")));
+
+        MessageContractVersionService service = new MessageContractVersionService(contractRepository, repositoryFactory);
+
+        assertThat(service.getVersionStatus("PROD"))
+                .singleElement()
+                .satisfies(status -> assertThat(status.appName()).isEqualTo("test-service"));
+    }
+
+    @Test
+    void skipsContractMissingFromDefaultBranch() {
+        MessageContractInfo contract = mock(MessageContractInfo.class);
+        when(contract.getRegistryUrl()).thenReturn("registry-url");
+        when(contract.getMessageType()).thenReturn("MissingEvent");
+        when(contract.getAppName()).thenReturn("test-service");
+        when(contract.getAppVersion()).thenReturn("3.0.0");
+        when(contractRepository.findMessageContractInfosByEnvironment("PROD")).thenReturn(List.of(contract));
+        when(repositoryFactory.cloneRepository("registry-url")).thenReturn(messageTypeRepository);
+        when(messageTypeRepository.getMessageTypeVersionsFromDefaultBranch(java.util.Set.of("MissingEvent")))
+                .thenReturn(Map.of());
+
+        MessageContractVersionService service = new MessageContractVersionService(contractRepository, repositoryFactory);
+
+        assertThat(service.getVersionStatus("PROD")).isEmpty();
     }
 
     private static MessageContractInfo contract(String appName, String messageType, String version) {
@@ -99,7 +133,6 @@ class MessageContractVersionServiceTest {
         when(contract.getTopic()).thenReturn("test-topic");
         when(contract.getRole()).thenReturn("CONSUMER");
         when(contract.getRegistryUrl()).thenReturn("registry-url");
-        when(contract.getBranch()).thenReturn("master");
         return contract;
     }
 }

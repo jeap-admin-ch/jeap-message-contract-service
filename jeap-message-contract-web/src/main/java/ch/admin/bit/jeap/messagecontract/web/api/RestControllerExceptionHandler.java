@@ -1,6 +1,5 @@
 package ch.admin.bit.jeap.messagecontract.web.api;
 
-import ch.admin.bit.jeap.messagecontract.domain.MessageContractRegistryException;
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepoException;
 import ch.admin.bit.jeap.messagecontract.domain.renovate.RenovateRegistryException;
 import lombok.extern.slf4j.Slf4j;
@@ -33,9 +32,4 @@ public class RestControllerExceptionHandler extends ResponseEntityExceptionHandl
         log.error("Renovate registry request failed: {}", ex.getMessage(), ex);
     }
 
-    @ExceptionHandler(MessageContractRegistryException.class)
-    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
-    public void logMessageContractRegistryFailure(MessageContractRegistryException ex) {
-        log.error("Message contract registry request failed: {}", ex.getMessage(), ex);
-    }
 }

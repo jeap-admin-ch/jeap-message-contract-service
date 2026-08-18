@@ -2,11 +2,11 @@ package ch.admin.bit.jeap.messagecontract.domain;
 
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepository;
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepositoryFactory;
-import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepoException;
 import ch.admin.bit.jeap.messagecontract.persistence.MessageContractInfo;
 import ch.admin.bit.jeap.messagecontract.persistence.MessageContractRepository;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class MessageContractVersionService {
 
     private final MessageContractRepository contractRepository;
@@ -28,13 +29,12 @@ public class MessageContractVersionService {
             throw new IllegalArgumentException("Environment must not be blank");
         }
 
-        Map<RegistryReference, List<MessageContractInfo>> contractsByRegistry = contractRepository
+        Map<String, List<MessageContractInfo>> contractsByRegistry = contractRepository
                 .findMessageContractInfosByEnvironment(environment.toUpperCase(Locale.ROOT)).stream()
-                .collect(Collectors.groupingBy(contract -> new RegistryReference(
-                        contract.getRegistryUrl(), contract.getBranch())));
+                .collect(Collectors.groupingBy(contract -> contract.getRegistryUrl() == null ? "" : contract.getRegistryUrl()));
 
         List<MessageContractVersionStatus> statuses = new ArrayList<>();
-        contractsByRegistry.forEach((registry, contracts) -> statuses.addAll(getVersionStatus(registry, contracts)));
+        contractsByRegistry.forEach((registryUrl, contracts) -> statuses.addAll(getVersionStatus(registryUrl, contracts)));
         return statuses.stream()
                 .sorted(Comparator.comparing(MessageContractVersionStatus::appName)
                         .thenComparing(MessageContractVersionStatus::messageType)
@@ -43,29 +43,38 @@ public class MessageContractVersionService {
                 .toList();
     }
 
-    private List<MessageContractVersionStatus> getVersionStatus(RegistryReference registry,
+    private List<MessageContractVersionStatus> getVersionStatus(String registryUrl,
                                                                  List<MessageContractInfo> contracts) {
-        if (registry.url() == null || registry.url().isBlank()) {
-            throw new IllegalArgumentException("Message contract registry URL must not be blank");
+        if (registryUrl.isBlank()) {
+            log.warn("Skipping latest message version lookup for {} contract(s) without a registry URL", contracts.size());
+            return List.of();
         }
 
         Map<String, List<String>> versionsByMessageType;
-        try (MessageTypeRepository repository = repositoryFactory.cloneRepository(registry.url())) {
-            versionsByMessageType = repository.getMessageTypeVersions(
-                    registry.branch(),
+        try (MessageTypeRepository repository = repositoryFactory.cloneRepository(registryUrl)) {
+            versionsByMessageType = repository.getMessageTypeVersionsFromDefaultBranch(
                     contracts.stream().map(MessageContractInfo::getMessageType).collect(Collectors.toSet()));
-        } catch (MessageTypeRepoException ex) {
-            if (ex.isInfrastructureFailure()) {
-                throw new MessageContractRegistryException("Message type registry is temporarily unavailable", ex);
-            }
-            throw ex;
         } catch (RuntimeException ex) {
-            throw new MessageContractRegistryException("Message type registry is temporarily unavailable", ex);
+            log.warn("Skipping latest message version lookup for {} contract(s) from registry {}: {}",
+                    contracts.size(), registryUrl, ex.getMessage(), ex);
+            return List.of();
         }
 
         return contracts.stream()
-                .map(contract -> toVersionStatus(contract, versionsByMessageType.get(contract.getMessageType())))
+                .map(contract -> toVersionStatusOrNull(contract, versionsByMessageType.get(contract.getMessageType())))
+                .filter(java.util.Objects::nonNull)
                 .toList();
+    }
+
+    private static MessageContractVersionStatus toVersionStatusOrNull(MessageContractInfo contract,
+                                                                        List<String> versions) {
+        try {
+            return toVersionStatus(contract, versions);
+        } catch (IllegalArgumentException ex) {
+            log.warn("Skipping latest message version status for {}:{} message type {}: {}",
+                    contract.getAppName(), contract.getAppVersion(), contract.getMessageType(), ex.getMessage());
+            return null;
+        }
     }
 
     private static MessageContractVersionStatus toVersionStatus(MessageContractInfo contract, List<String> versions) {
@@ -88,8 +97,4 @@ public class MessageContractVersionService {
                 contract.getTopic(),
                 MessageContractRole.valueOf(contract.getRole()));
     }
-
-    private record RegistryReference(String url, String branch) {
-    }
-
 }
