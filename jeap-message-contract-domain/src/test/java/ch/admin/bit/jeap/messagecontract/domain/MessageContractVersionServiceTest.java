@@ -124,6 +124,33 @@ class MessageContractVersionServiceTest {
         assertThat(service.getVersionStatus("PROD")).isEmpty();
     }
 
+    @Test
+    void returnsKnownContractWhenAnotherContractIsMissingFromSameRegistry() {
+        MessageContractInfo knownContract = contract("known-service", "KnownEvent", "1.0.0");
+        MessageContractInfo missingContract = mock(MessageContractInfo.class);
+        when(missingContract.getAppName()).thenReturn("missing-service");
+        when(missingContract.getAppVersion()).thenReturn("3.0.0");
+        when(missingContract.getMessageType()).thenReturn("MissingEvent");
+        when(missingContract.getRegistryUrl()).thenReturn("registry-url");
+        when(contractRepository.findMessageContractInfosByEnvironment("PROD"))
+                .thenReturn(List.of(knownContract, missingContract));
+        when(repositoryFactory.cloneRepository("registry-url")).thenReturn(messageTypeRepository);
+        when(messageTypeRepository.getMessageTypeVersionsFromDefaultBranch(
+                java.util.Set.of("KnownEvent", "MissingEvent")))
+                .thenReturn(Map.of("KnownEvent", List.of("1.0.0", "1.1.0")));
+
+        MessageContractVersionService service = new MessageContractVersionService(contractRepository, repositoryFactory);
+
+        assertThat(service.getVersionStatus("PROD"))
+                .singleElement()
+                .satisfies(status -> {
+                    assertThat(status.appName()).isEqualTo("known-service");
+                    assertThat(status.usedVersion()).isEqualTo("1.0.0");
+                    assertThat(status.latestVersion()).isEqualTo("1.1.0");
+                    assertThat(status.upToDate()).isFalse();
+                });
+    }
+
     private static MessageContractInfo contract(String appName, String messageType, String version) {
         MessageContractInfo contract = mock(MessageContractInfo.class);
         when(contract.getAppName()).thenReturn(appName);

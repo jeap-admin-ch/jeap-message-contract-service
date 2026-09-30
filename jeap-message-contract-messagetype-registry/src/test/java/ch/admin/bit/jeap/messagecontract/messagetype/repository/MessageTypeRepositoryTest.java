@@ -110,6 +110,34 @@ class MessageTypeRepositoryTest {
     }
 
     @Test
+    void skipsMissingMessageTypeWhenGettingVersionsFromDefaultBranch() {
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(
+                new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            Map<String, List<String>> versions = messageTypeRepository
+                    .getMessageTypeVersionsFromDefaultBranch(Set.of(ACTIV_ZONE_ENTERED_EVENT, "DoesNotExist"));
+
+            assertEquals(Map.of(ACTIV_ZONE_ENTERED_EVENT, List.of(VERSION_1_0_0, VERSION_2_0_0)), versions);
+        }
+    }
+
+    @Test
+    void skipsAmbiguousMessageTypeWhenGettingVersionsFromDefaultBranch() throws Exception {
+        repo.addAndCommitFile(
+                repo.repoDir().resolve("descriptor/activ/event/newevent/NewEvent.json"), NEW_EVENT_DESCRIPTOR_JSON);
+        repo.addAndCommitFile(
+                repo.repoDir().resolve("descriptor/activ/event/duplicatenewevent/NewEvent.json"), NEW_EVENT_DESCRIPTOR_JSON);
+        MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(
+                new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
+        try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {
+            Map<String, List<String>> versions = messageTypeRepository
+                    .getMessageTypeVersionsFromDefaultBranch(Set.of(ACTIV_ZONE_ENTERED_EVENT, NEW_EVENT));
+
+            assertEquals(Map.of(ACTIV_ZONE_ENTERED_EVENT, List.of(VERSION_1_0_0, VERSION_2_0_0)), versions);
+        }
+    }
+
+    @Test
     void getSchemaAsAvroProtocolJsonWhenNotFoundThenExpectException() {
         MessageTypeRepositoryFactory factory = new MessageTypeRepositoryFactory(new MessageTypeRepositoryProperties(), new SimpleMeterRegistry());
         try (MessageTypeRepository messageTypeRepository = factory.cloneRepository(repoUrl)) {

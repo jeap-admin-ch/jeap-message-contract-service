@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static ch.admin.bit.jeap.messagecontract.messagetype.repository.Elapsed.elapsedMs;
@@ -181,11 +180,10 @@ public class MessageTypeRepository implements Closeable {
                 .filter(descriptor -> requestedNames.contains(descriptor.getMessageTypeName()))
                 .collect(java.util.stream.Collectors.groupingBy(MessageTypeDescriptor::getMessageTypeName));
 
-        return requestedNames.stream().collect(java.util.stream.Collectors.toMap(
-                Function.identity(),
-                messageTypeName -> getUnambiguousDescriptor(descriptors, messageTypeName).getVersions().stream()
-                        .map(MessageTypeVersion::getVersion)
-                        .toList()));
+        return requestedNames.stream()
+                .map(messageTypeName -> getVersionEntryOrNull(descriptors, messageTypeName))
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     public Map<String, List<String>> getMessageTypeVersionsFromDefaultBranch(Collection<String> messageTypeNames) {
@@ -204,6 +202,19 @@ public class MessageTypeRepository implements Closeable {
             throw MessageTypeRepoException.ambiguousMessageType(messageTypeName);
         }
         return matches.getFirst();
+    }
+
+    private static Map.Entry<String, List<String>> getVersionEntryOrNull(
+            Map<String, List<MessageTypeDescriptor>> descriptors, String messageTypeName) {
+        try {
+            List<String> versions = getUnambiguousDescriptor(descriptors, messageTypeName).getVersions().stream()
+                    .map(MessageTypeVersion::getVersion)
+                    .toList();
+            return Map.entry(messageTypeName, versions);
+        } catch (MessageTypeRepoException ex) {
+            log.warn("Skipping message type {} during bulk version lookup: {}", messageTypeName, ex.getMessage());
+            return null;
+        }
     }
 
     private List<String> findMessageTypeVersions(String messageTypeName, String definingSystem) {
