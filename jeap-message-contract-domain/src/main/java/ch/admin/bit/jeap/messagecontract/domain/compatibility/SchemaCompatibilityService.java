@@ -55,7 +55,13 @@ public class SchemaCompatibilityService {
     }
 
     private Schema getAvroSchema(MessageTypeSchema schema) {
-        Protocol readerProtocol = Protocol.parse(schema.avroProtocol());
-        return readerProtocol.getType(schema.messageTypeName());
+        if (schema.avroSchema() != null) {
+            return new Schema.Parser().parse(schema.avroSchema());
+        }
+        if (schema.avroProtocol() == null) {
+            throw new IllegalStateException("No avro schema available for message type " + schema.messageTypeName());
+        }
+        Protocol protocol = Protocol.parse(schema.avroProtocol());
+        return protocol.getType(schema.messageTypeName());
     }
 }

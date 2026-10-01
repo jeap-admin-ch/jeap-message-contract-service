@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > - The Spring Boot 4 upgrade process happens on the `master` branch, with the goal of releasing Spring Boot 4 compatible versions of all jeap components in a single major release.
 
+## [12.9.0] - 2026-10-01
+
+### Added
+- The contract upload accepts the Avro schema of a message type in the new optional `schema` attribute. If the schema is provided in the upload, it is stored as is and the message type registry git repository is not accessed anymore for that contract.
+
 ## [12.8.0] - 2026-10-01
 
 ### Dependencies

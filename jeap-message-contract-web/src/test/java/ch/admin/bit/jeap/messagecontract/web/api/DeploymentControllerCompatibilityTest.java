@@ -4,6 +4,8 @@ import ch.admin.bit.jeap.messagecontract.domain.compatibility.CompatibilityCheck
 import ch.admin.bit.jeap.messagecontract.domain.compatibility.CompatibilityCheckResult.ConsumerProducerInteraction;
 import ch.admin.bit.jeap.messagecontract.domain.compatibility.CompatibilityCheckResult.Incompatibility;
 import ch.admin.bit.jeap.messagecontract.domain.compatibility.CompatibilityCheckResult.InteractionRole;
+import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepository;
+import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepositoryFactory;
 import ch.admin.bit.jeap.messagecontract.persistence.JpaDeploymentRepository;
 import ch.admin.bit.jeap.messagecontract.persistence.JpaMessageContractRepository;
 import ch.admin.bit.jeap.messagecontract.test.TestRegistryRepo;
@@ -12,6 +14,7 @@ import ch.admin.bit.jeap.messagecontract.web.api.dto.CreateMessageContractsDto;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.MessageContractRole;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.NewMessageContractDto;
 import lombok.SneakyThrows;
+import org.apache.avro.Protocol;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,17 +51,20 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
     private final JpaDeploymentRepository deploymentRepository;
     private final JpaMessageContractRepository messageContractRepository;
     private final JsonMapper jsonMapper;
+    private final MessageTypeRepositoryFactory messageTypeRepositoryFactory;
     private TestRegistryRepo testRegistryRepo;
 
     @Autowired
     DeploymentControllerCompatibilityTest(MockMvc mockMvc,
                                            JpaDeploymentRepository deploymentRepository,
                                            JpaMessageContractRepository messageContractRepository,
-                                           JsonMapper jsonMapper) {
+                                           JsonMapper jsonMapper,
+                                           MessageTypeRepositoryFactory messageTypeRepositoryFactory) {
         super(mockMvc);
         this.deploymentRepository = deploymentRepository;
         this.messageContractRepository = messageContractRepository;
         this.jsonMapper = jsonMapper;
+        this.messageTypeRepositoryFactory = messageTypeRepositoryFactory;
     }
 
     @BeforeEach
@@ -254,9 +260,60 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         assertThat(producerResult.incompatibilities()).isEmpty();
     }
 
+    @Test
     @SneakyThrows
-    protected void notifyAppDeployedOnEnv(String appName, String appVersion, String environment) {
-        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
+    void getCompatibilityWhenSchemaIsProvidedInTheUploadThenShouldUseTheUploadedSchema() {
+        // given: a consumer contract uploaded with the avro record schema (as generated from the SCHEMA$ field of the
+        // message type) and a producer contract whose schema is read from the message type registry
+        putActivZoneEnteredEventContract(VERSION_2_0_0, MessageContractRole.CONSUMER, TEST_CONSUMER_APP, "1.0",
+                recordSchemaFromRegistry(VERSION_2_0_0));
+        putActivZoneEnteredEventContract(VERSION_2_0_0, MessageContractRole.PRODUCER, TEST_PRODUCER_APP, "2.0");
+
+        notifyAppDeployedOnEnv(TEST_CONSUMER_APP, "1.0", "prod");
+        notifyAppDeployedOnEnv(TEST_PRODUCER_APP, "2.0", "prod");
+
+        // when testing compatibility, then the uploaded schema is compatible with the schema from the registry
+        MvcResult mvcResult = doCompatibilityGetRequest(TEST_CONSUMER_APP, "1.0", "prod")
+                .andExpect(status().is2xxSuccessful())
+                .andReturn();
+        CompatibilityCheckResult consumerResult = jsonMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
+
+        assertThat(consumerResult.compatible()).isTrue();
+        assertThat(consumerResult.interactions()).hasSize(1);
+        assertThat(consumerResult.incompatibilities()).isEmpty();
+    }
+
+    @Test
+    @SneakyThrows
+    void getCompatibilityWhenIncompatibleSchemaIsProvidedInTheUploadThenShouldReturnPreconditionFailed() {
+        // given: a consumer contract uploaded with the record schema of v1, which is incompatible with the v2 schema
+        // the producer is using
+        putActivZoneEnteredEventContract(VERSION_2_0_0, MessageContractRole.CONSUMER, TEST_CONSUMER_APP, "1.0",
+                recordSchemaFromRegistry("1.0.0"));
+        putActivZoneEnteredEventContract(VERSION_2_0_0, MessageContractRole.PRODUCER, TEST_PRODUCER_APP, "2.0");
+
+        notifyAppDeployedOnEnv(TEST_CONSUMER_APP, "1.0", "prod");
+
+        MvcResult mvcResult = doCompatibilityGetRequest(TEST_PRODUCER_APP, "2.0", "prod")
+                .andExpect(status().is(HttpStatus.PRECONDITION_FAILED.value()))
+                .andReturn();
+        CompatibilityCheckResult producerResult = jsonMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
+
+        assertThat(producerResult.compatible()).isFalse();
+        assertThat(producerResult.incompatibilities()).isNotEmpty();
+    }
+
+    @SuppressWarnings("resource")
+    private String recordSchemaFromRegistry(String messageTypeVersion) {
+        try (MessageTypeRepository repository = messageTypeRepositoryFactory.cloneRepository(testRegistryRepo.url())) {
+            String avroProtocolJson = repository.getSchemaAsAvroProtocolJson("master", testRegistryRepo.revision(),
+                    ACTIV_ZONE_ENTERED_EVENT, messageTypeVersion);
+            return Protocol.parse(avroProtocolJson).getType(ACTIV_ZONE_ENTERED_EVENT).toString();
+        }
+    }
+
+    @SneakyThrows
+    protected void notifyAppDeployedOnEnv(String appName, String appVersion, String environment) {        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
 
         mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, appName, appVersion, environment)
                         .header(AUTHORIZATION, basicAuthHeader))
@@ -272,10 +329,14 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
     }
 
     private void putActivZoneEnteredEventContract(String messageTypeVersion, MessageContractRole consumer, String appName, String appVersion) {
+        putActivZoneEnteredEventContract(messageTypeVersion, consumer, appName, appVersion, null);
+    }
+
+    private void putActivZoneEnteredEventContract(String messageTypeVersion, MessageContractRole consumer, String appName, String appVersion, String schema) {
         NewMessageContractDto consumerContract =
                 new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, messageTypeVersion,
                         TEST_TOPIC, consumer,
-                        testRegistryRepo.url(), testRegistryRepo.revision(), "master", CompatibilityMode.BACKWARD, null);
+                        testRegistryRepo.url(), testRegistryRepo.revision(), "master", CompatibilityMode.BACKWARD, null, schema);
         CreateMessageContractsDto messageContractsDto1 = new CreateMessageContractsDto(List.of(consumerContract));
         putContracts(appName, appVersion, messageContractsDto1);
     }

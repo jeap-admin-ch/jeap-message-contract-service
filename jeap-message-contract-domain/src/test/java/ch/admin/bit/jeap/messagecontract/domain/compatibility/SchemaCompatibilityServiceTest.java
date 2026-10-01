@@ -5,6 +5,7 @@ import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepos
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepositoryProperties;
 import ch.admin.bit.jeap.messagecontract.test.TestRegistryRepo;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.apache.avro.Protocol;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SchemaCompatibilityServiceTest {
 
@@ -40,8 +42,8 @@ class SchemaCompatibilityServiceTest {
             String avroProtocolJson1 = repo.getSchemaAsAvroProtocolJson("master", null, "ActivZoneEnteredEvent", "1.0.0");
             String avroProtocolJson2 = repo.getSchemaAsAvroProtocolJson("master", null, "ActivZoneEnteredEvent", "2.0.0");
 
-            activZoneEnteredEventV1 = new MessageTypeSchema("ActivZoneEnteredEvent", avroProtocolJson1);
-            activZoneEnteredEventV2 = new MessageTypeSchema("ActivZoneEnteredEvent", avroProtocolJson2);
+            activZoneEnteredEventV1 = new MessageTypeSchema("ActivZoneEnteredEvent", avroProtocolJson1, null);
+            activZoneEnteredEventV2 = new MessageTypeSchema("ActivZoneEnteredEvent", avroProtocolJson2, null);
         }
     }
 
@@ -52,5 +54,35 @@ class SchemaCompatibilityServiceTest {
 
         assertThat(v1ComparedToV1).isEmpty();
         assertThat(v1ComparedToV2).isNotEmpty();
+    }
+
+    @Test
+    void validateCompatibility_whenSchemaUploadedAsAvroRecordSchema_thenCompatibleWithProtocolFromRegistry() {
+        // An uploaded schema is the avro record schema (as found in the SCHEMA$ field of a generated message type),
+        // whereas a schema read from the message type registry is an avro protocol
+        MessageTypeSchema uploadedV1 = toRecordSchema(activZoneEnteredEventV1);
+        MessageTypeSchema uploadedV2 = toRecordSchema(activZoneEnteredEventV2);
+
+        assertThat(compatibilityService.validateCompatibility(uploadedV1, uploadedV1)).isEmpty();
+        assertThat(compatibilityService.validateCompatibility(uploadedV1, activZoneEnteredEventV1)).isEmpty();
+        assertThat(compatibilityService.validateCompatibility(activZoneEnteredEventV1, uploadedV1)).isEmpty();
+        assertThat(compatibilityService.validateCompatibility(uploadedV1, uploadedV2)).isNotEmpty();
+        assertThat(compatibilityService.validateCompatibility(activZoneEnteredEventV1, uploadedV2)).isNotEmpty();
+    }
+
+    @Test
+    void validateCompatibility_whenNoSchemaAvailable_thenThrowsIllegalStateException() {
+        MessageTypeSchema noSchema = new MessageTypeSchema("ActivZoneEnteredEvent", null, null);
+
+        assertThatThrownBy(() -> compatibilityService.validateCompatibility(noSchema, activZoneEnteredEventV1))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ActivZoneEnteredEvent");
+    }
+
+    private static MessageTypeSchema toRecordSchema(MessageTypeSchema protocolSchema) {
+        String recordSchemaJson = Protocol.parse(protocolSchema.avroProtocol())
+                .getType(protocolSchema.messageTypeName())
+                .toString();
+        return new MessageTypeSchema(protocolSchema.messageTypeName(), null, recordSchemaJson);
     }
 }

@@ -14,7 +14,8 @@ public record NewMessageContractDto(
         String commitHash,
         String branch,
         @NotNull CompatibilityMode compatibilityMode,
-        String encryptionKeyId) {
+        String encryptionKeyId,
+        String schema) {
 
     public MessageContract toNewDomainObject(String appName, String appVersion, String transactionId) {
         return MessageContract.builder()
@@ -29,6 +30,7 @@ public record NewMessageContractDto(
                 .branch(branch)
                 .compatibilityMode(compatibilityMode.toDomainObject())
                 .encryptionKeyId(encryptionKeyId)
+                .avroSchema(schema)
                 .transactionId(transactionId)
                 .build();
     }

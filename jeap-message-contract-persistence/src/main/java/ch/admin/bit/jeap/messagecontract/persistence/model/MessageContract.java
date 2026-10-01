@@ -43,6 +43,8 @@ public class MessageContract {
     private CompatibilityMode compatibilityMode;
     @Setter
     private String avroProtocolSchema;
+    @Setter
+    private String avroSchema;
     private ZonedDateTime createdAt;
     private boolean deleted;
     private ZonedDateTime deletedAt;
@@ -61,6 +63,7 @@ public class MessageContract {
                             String commitHash,
                             String branch,
                             String avroProtocolSchema,
+                            String avroSchema,
                             CompatibilityMode compatibilityMode,
                             String encryptionKeyId,
                             String transactionId) {
@@ -75,6 +78,7 @@ public class MessageContract {
         this.commitHash = commitHash;
         this.branch = branch;
         this.avroProtocolSchema = avroProtocolSchema;
+        this.avroSchema = avroSchema;
         this.compatibilityMode = compatibilityMode;
         this.createdAt = ZonedDateTime.now();
         this.deleted = false;
@@ -85,5 +89,9 @@ public class MessageContract {
 
     public boolean referencesSpecificCommit() {
         return commitHash != null;
+    }
+
+    public boolean hasUploadedSchema() {
+        return avroSchema != null;
     }
 }

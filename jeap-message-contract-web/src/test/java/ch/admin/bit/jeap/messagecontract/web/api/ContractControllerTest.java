@@ -44,6 +44,11 @@ class ContractControllerTest extends ControllerTestBase {
     private static final String VERSION2 = "version2";
     private static final String TEST_KEY_ID = "testKeyId";
     private static final String MASTER = "master";
+    private static final String UNAVAILABLE_REGISTRY_URL = "file:///tmp/jeap-message-contract-service-no-such-registry";
+    private static final String SCHEMA_JSON = """
+            {"type":"record","name":"ActivZoneEnteredEvent","namespace":"ch.admin.ezv.activ.infrastructure.kafka.event.v1",
+             "fields":[{"name":"domainEventVersion","type":"string"}]}
+            """;
 
     private static TestRegistryRepo repo;
     private static String repoUrl;
@@ -167,9 +172,9 @@ class ContractControllerTest extends ControllerTestBase {
     @SneakyThrows
     void putThenReplaceContracts() {
         NewMessageContractDto contract1 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
-                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null, null);
         NewMessageContractDto contract2 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
-                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID, null);
         List<NewMessageContractDto> uploadedContracts = List.of(contract1, contract2);
         CreateMessageContractsDto messageContractsDto = new CreateMessageContractsDto(uploadedContracts);
         putContracts("app", VERSION_2_0_0, messageContractsDto);
@@ -202,13 +207,13 @@ class ContractControllerTest extends ControllerTestBase {
     @SneakyThrows
     void putThenAddContractsForSameTransaction() {
         NewMessageContractDto contract1 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
-                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null, null);
         putContracts("app", VERSION_2_0_0, "tx1", new CreateMessageContractsDto(List.of(contract1)));
 
         assertContractsCount(1);
 
         NewMessageContractDto contract2 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
-                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID, null);
         putContracts("app", VERSION_2_0_0, "tx1", new CreateMessageContractsDto(List.of(contract2)));
 
         assertContractsCount(2);
@@ -218,7 +223,7 @@ class ContractControllerTest extends ControllerTestBase {
     @SneakyThrows
     void putThenAddSameContractForSameTransaction() {
         NewMessageContractDto contract1 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
-                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null, null);
         putContracts("app", VERSION_2_0_0, "tx1", new CreateMessageContractsDto(List.of(contract1)));
 
         assertContractsCount(1);
@@ -244,13 +249,13 @@ class ContractControllerTest extends ControllerTestBase {
     @SneakyThrows
     void putThenAddContractsForOtherTransaction() {
         NewMessageContractDto contract1 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
-                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null, null);
         putContracts("app", VERSION_2_0_0, "tx1", new CreateMessageContractsDto(List.of(contract1)));
 
         assertContractsCount(1);
 
         NewMessageContractDto contract2 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
-                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID, null);
         putContracts("app", VERSION_2_0_0, "tx2", new CreateMessageContractsDto(List.of(contract2)));
 
         assertContractsCount(1);
@@ -259,13 +264,13 @@ class ContractControllerTest extends ControllerTestBase {
     @Test
     void putThenAddContractsForOtherNullTransaction() {
         NewMessageContractDto contract1 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
-                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null, null);
         putContracts("app", VERSION_2_0_0, "tx1", new CreateMessageContractsDto(List.of(contract1)));
 
         assertContractsCount(1);
 
         NewMessageContractDto contract2 = new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
-                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID);
+                TOPIC, MessageContractRole.PRODUCER, repoUrl, null, MASTER, CompatibilityMode.FORWARD, TEST_KEY_ID, null);
         putContracts("app", VERSION_2_0_0, new CreateMessageContractsDto(List.of(contract2)));
 
         assertContractsCount(1);
@@ -276,7 +281,7 @@ class ContractControllerTest extends ControllerTestBase {
     @SneakyThrows
     void putInvalidContract() {
         NewMessageContractDto contract = new NewMessageContractDto("", "",
-                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null, null);
         List<NewMessageContractDto> uploadedContracts = List.of(contract);
         CreateMessageContractsDto messageContractsDto = new CreateMessageContractsDto(uploadedContracts);
 
@@ -445,7 +450,64 @@ class ContractControllerTest extends ControllerTestBase {
                 .andExpect(jsonPath("$[0].upToDate").value(false));
     }
 
+    @Test
+    @SneakyThrows
+    void putContractWithSchemaDoesNotAccessMessageTypeRegistry() {
+        // given: a contract referencing a registry which is not available, but providing the schema in the upload
+        MessageContractDto contract = new MessageContractDto("app", VERSION_2_0_0, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.CONSUMER, UNAVAILABLE_REGISTRY_URL, null, MASTER, CompatibilityMode.BACKWARD, null);
+
+        // when uploading the contract, then the upload succeeds as the registry is not accessed
+        putContracts("app", VERSION_2_0_0, new CreateMessageContractsDto(List.of(createNew(contract, SCHEMA_JSON))));
+
+        MvcResult result = mockMvc.perform(get(API_CONTRACTS)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().is2xxSuccessful())
+                .andReturn();
+        List<MessageContractDto> dtos = jsonMapper.readValue(
+                result.getResponse().getContentAsString(),
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, MessageContractDto.class)
+        );
+
+        assertEquals(List.of(contract), dtos);
+    }
+
+    @Test
+    @SneakyThrows
+    void putContractWithoutSchemaFromUnavailableRegistryFails() {
+        // given: a contract referencing a registry which is not available and no schema in the upload
+        MessageContractDto contract = new MessageContractDto("app", VERSION_2_0_0, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.CONSUMER, UNAVAILABLE_REGISTRY_URL, null, MASTER, CompatibilityMode.BACKWARD, null);
+        CreateMessageContractsDto messageContractsDto = new CreateMessageContractsDto(List.of(createNew(contract)));
+
+        // when uploading the contract, then the upload fails as the schema cannot be read from the registry
+        mockMvc.perform(put(API_CONTRACTS_APP_VERSION, "app", VERSION_2_0_0)
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(messageContractsDto)))
+                .andExpect(status().isBadRequest()); // 400
+    }
+
+    @Test
+    @SneakyThrows
+    void putContractWithInvalidSchema() {
+        MessageContractDto contract = new MessageContractDto("app", VERSION_2_0_0, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,
+                TOPIC, MessageContractRole.CONSUMER, repoUrl, repo.revision(), null, CompatibilityMode.BACKWARD, null);
+        CreateMessageContractsDto messageContractsDto = new CreateMessageContractsDto(
+                List.of(createNew(contract, "this is not an avro schema")));
+
+        mockMvc.perform(put(API_CONTRACTS_APP_VERSION, "app", VERSION_2_0_0)
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(messageContractsDto)))
+                .andExpect(status().isBadRequest()); // 400
+    }
+
     private NewMessageContractDto createNew(MessageContractDto contractDto) {
+        return createNew(contractDto, null);
+    }
+
+    private NewMessageContractDto createNew(MessageContractDto contractDto, String schema) {
         return new NewMessageContractDto(contractDto.messageType(),
                 contractDto.messageTypeVersion(),
                 contractDto.topic(),
@@ -454,7 +516,8 @@ class ContractControllerTest extends ControllerTestBase {
                 contractDto.commitHash(),
                 contractDto.branch(),
                 contractDto.compatibilityMode(),
-                contractDto.encryptionKeyId()
+                contractDto.encryptionKeyId(),
+                schema
         );
     }
 

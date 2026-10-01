@@ -6,6 +6,7 @@ import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContract;
 import io.micrometer.core.annotation.Timed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Schema;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -22,9 +23,24 @@ public class MessageSchemaService {
 
     @Timed(value = "loadschemas.time", description = "Time taken to load message type schemas from the registry", histogram = true)
     public void loadSchemas(List<MessageContract> messageContracts) {
-        var byRegistry = messageContracts.stream()
+        List<MessageContract> contractsWithoutSchema = messageContracts.stream()
+                .filter(contract -> !contract.hasUploadedSchema())
+                .toList();
+        int uploadedSchemaCount = messageContracts.size() - contractsWithoutSchema.size();
+
+        messageContracts.stream()
+                .filter(MessageContract::hasUploadedSchema)
+                .forEach(MessageSchemaService::validateUploadedSchema);
+
+        if (contractsWithoutSchema.isEmpty()) {
+            log.info("loadSchemas: {} contract(s), all schemas provided in the upload, no registry access needed", uploadedSchemaCount);
+            return;
+        }
+
+        var byRegistry = contractsWithoutSchema.stream()
                 .collect(groupingBy(MessageContract::getRegistryUrl));
-        log.info("loadSchemas: {} contract(s) across {} registry url(s)", messageContracts.size(), byRegistry.size());
+        log.info("loadSchemas: {} contract(s), {} with uploaded schema, {} to be loaded from {} registry url(s)",
+                messageContracts.size(), uploadedSchemaCount, contractsWithoutSchema.size(), byRegistry.size());
         byRegistry.forEach(this::loadSchemasFromRepository);
     }
 
@@ -53,5 +69,14 @@ public class MessageSchemaService {
                 messageContract.getCommitHash(),
                 messageContract.getMessageType(),
                 messageContract.getMessageTypeVersion());
+    }
+
+    private static void validateUploadedSchema(MessageContract messageContract) {
+        try {
+            new Schema.Parser().parse(messageContract.getAvroSchema());
+        } catch (RuntimeException ex) {
+            throw new IllegalArgumentException("The uploaded avro schema for the message type %s:%s is not a valid avro schema"
+                    .formatted(messageContract.getMessageType(), messageContract.getMessageTypeVersion()), ex);
+        }
     }
 }
