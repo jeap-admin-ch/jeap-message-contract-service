@@ -34,4 +34,20 @@ public record NewMessageContractDto(
                 .transactionId(transactionId)
                 .build();
     }
+
+    /**
+     * The schema is replaced by its size, as a message type schema can be several kilobytes in size and contracts are
+     * logged on every upload.
+     */
+    @Override
+    public String toString() {
+        return ("NewMessageContractDto[messageType=%s, messageTypeVersion=%s, topic=%s, role=%s, registryUrl=%s, " +
+                "commitHash=%s, branch=%s, compatibilityMode=%s, encryptionKeyId=%s, schema=%s]")
+                .formatted(messageType, messageTypeVersion, topic, role, registryUrl, commitHash, branch,
+                        compatibilityMode, encryptionKeyId, schemaForLogging());
+    }
+
+    private String schemaForLogging() {
+        return schema == null ? null : "<" + schema.length() + " chars>";
+    }
 }

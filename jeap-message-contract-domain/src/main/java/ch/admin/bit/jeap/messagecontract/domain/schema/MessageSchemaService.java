@@ -72,11 +72,18 @@ public class MessageSchemaService {
     }
 
     private static void validateUploadedSchema(MessageContract messageContract) {
+        Schema schema;
         try {
-            new Schema.Parser().parse(messageContract.getAvroSchema());
+            schema = new Schema.Parser().parse(messageContract.getAvroSchema());
         } catch (RuntimeException ex) {
             throw new IllegalArgumentException("The uploaded avro schema for the message type %s:%s is not a valid avro schema"
                     .formatted(messageContract.getMessageType(), messageContract.getMessageTypeVersion()), ex);
+        }
+        if (schema.getType() != Schema.Type.RECORD || !messageContract.getMessageType().equals(schema.getName())) {
+            throw new IllegalArgumentException(
+                    "The uploaded avro schema for the message type %s:%s does not define the record %s but '%s'"
+                            .formatted(messageContract.getMessageType(), messageContract.getMessageTypeVersion(),
+                                    messageContract.getMessageType(), schema.getFullName()));
         }
     }
 }

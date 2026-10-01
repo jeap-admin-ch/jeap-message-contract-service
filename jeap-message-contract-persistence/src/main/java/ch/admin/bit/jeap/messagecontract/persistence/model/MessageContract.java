@@ -92,6 +92,6 @@ public class MessageContract {
     }
 
     public boolean hasUploadedSchema() {
-        return avroSchema != null;
+        return avroSchema != null && !avroSchema.isBlank();
     }
 }

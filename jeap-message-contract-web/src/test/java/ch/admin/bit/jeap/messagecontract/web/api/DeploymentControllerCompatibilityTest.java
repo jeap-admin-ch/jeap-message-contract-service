@@ -313,7 +313,8 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
     }
 
     @SneakyThrows
-    protected void notifyAppDeployedOnEnv(String appName, String appVersion, String environment) {        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
+    protected void notifyAppDeployedOnEnv(String appName, String appVersion, String environment) {
+        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
 
         mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, appName, appVersion, environment)
                         .header(AUTHORIZATION, basicAuthHeader))

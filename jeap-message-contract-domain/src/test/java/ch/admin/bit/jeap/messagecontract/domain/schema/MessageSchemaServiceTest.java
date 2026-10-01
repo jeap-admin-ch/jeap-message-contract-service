@@ -115,6 +115,36 @@ class MessageSchemaServiceTest {
                 .hasMessageContaining(ACTIV_ZONE_ENTERED_EVENT);
     }
 
+    @Test
+    void loadSchemas_whenUploadedSchemaIsForAnotherMessageType_thenThrowsIllegalArgumentException() {
+        MessageContract contract = createContractWithSchema(testRepo.url(), SCHEMA_JSON.replace(ACTIV_ZONE_ENTERED_EVENT, "SomeOtherEvent"));
+
+        List<MessageContract> contracts = List.of(contract);
+        assertThatThrownBy(() -> messageSchemaService.loadSchemas(contracts))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(ACTIV_ZONE_ENTERED_EVENT)
+                .hasMessageContaining("SomeOtherEvent");
+    }
+
+    @Test
+    void loadSchemas_whenUploadedSchemaIsNotARecord_thenThrowsIllegalArgumentException() {
+        MessageContract contract = createContractWithSchema(testRepo.url(), "\"string\"");
+
+        List<MessageContract> contracts = List.of(contract);
+        assertThatThrownBy(() -> messageSchemaService.loadSchemas(contracts))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(ACTIV_ZONE_ENTERED_EVENT);
+    }
+
+    @Test
+    void loadSchemas_whenUploadedSchemaIsBlank_thenLoadSchemaFromRegistry() {
+        MessageContract contract = createContractWithSchema(testRepo.url(), "  ");
+
+        messageSchemaService.loadSchemas(List.of(contract));
+
+        assertThat(contract.getAvroProtocolSchema()).isNotEmpty();
+    }
+
     private MessageContract createContract(String repoUrl) {
         return contractBuilder(repoUrl)
                 .build();
