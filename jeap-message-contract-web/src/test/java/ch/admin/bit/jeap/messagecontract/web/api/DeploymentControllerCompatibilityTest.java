@@ -286,10 +286,12 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
     @Test
     @SneakyThrows
     void getCompatibilityWhenIncompatibleSchemaIsProvidedInTheUploadThenShouldReturnPreconditionFailed() {
-        // given: a consumer contract uploaded with the record schema of v1, which is incompatible with the v2 schema
-        // the producer is using
+        // given: a consumer contract uploaded with a schema of the correct message type version, but with a renamed
+        // payload field, which is incompatible with the schema the producer reads from the registry
+        String incompatibleSchema = recordSchemaFromRegistry(VERSION_2_0_0)
+                .replace("\"name\":\"plateValue\"", "\"name\":\"plateValueRenamed\"");
         putActivZoneEnteredEventContract(VERSION_2_0_0, MessageContractRole.CONSUMER, TEST_CONSUMER_APP, "1.0",
-                recordSchemaFromRegistry("1.0.0"));
+                incompatibleSchema);
         putActivZoneEnteredEventContract(VERSION_2_0_0, MessageContractRole.PRODUCER, TEST_PRODUCER_APP, "2.0");
 
         notifyAppDeployedOnEnv(TEST_CONSUMER_APP, "1.0", "prod");
@@ -300,7 +302,27 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         CompatibilityCheckResult producerResult = jsonMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
 
         assertThat(producerResult.compatible()).isFalse();
-        assertThat(producerResult.incompatibilities()).isNotEmpty();
+        assertThat(producerResult.incompatibilities())
+                .flatExtracting(Incompatibility::schemaIncompatibilities)
+                .anyMatch(schemaIncompatibility -> schemaIncompatibility.incompatibilityType().equals("READER_FIELD_MISSING_DEFAULT_VALUE"));
+    }
+
+    @Test
+    @SneakyThrows
+    void putContractsWhenUploadedSchemaDeclaresAnotherMajorVersionThenShouldReturnBadRequest() {
+        // given: a consumer contract for v1 uploaded with the record schema of v2, which declares the major version
+        // in its namespace
+        NewMessageContractDto consumerContract =
+                new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, "1.0.0",
+                        TEST_TOPIC, MessageContractRole.CONSUMER,
+                        testRegistryRepo.url(), testRegistryRepo.revision(), "master", CompatibilityMode.BACKWARD, null,
+                        recordSchemaFromRegistry(VERSION_2_0_0));
+
+        mockMvc.perform(put(API_CONTRACTS_APP_VERSION, TEST_CONSUMER_APP, "1.0")
+                        .header(AUTHORIZATION, BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(new CreateMessageContractsDto(List.of(consumerContract)))))
+                .andExpect(status().isBadRequest()); // 400
     }
 
     @SuppressWarnings("resource")

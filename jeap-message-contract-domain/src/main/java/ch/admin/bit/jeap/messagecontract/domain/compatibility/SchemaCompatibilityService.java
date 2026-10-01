@@ -55,7 +55,7 @@ public class SchemaCompatibilityService {
     }
 
     private Schema getAvroSchema(MessageTypeSchema schema) {
-        if (schema.avroSchema() != null) {
+        if (schema.avroSchema() != null && !schema.avroSchema().isBlank()) {
             return new Schema.Parser().parse(schema.avroSchema());
         }
         if (schema.avroProtocol() == null) {

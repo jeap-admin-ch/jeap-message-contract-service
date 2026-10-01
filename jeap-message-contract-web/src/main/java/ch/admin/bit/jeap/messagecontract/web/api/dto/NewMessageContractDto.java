@@ -30,9 +30,13 @@ public record NewMessageContractDto(
                 .branch(branch)
                 .compatibilityMode(compatibilityMode.toDomainObject())
                 .encryptionKeyId(encryptionKeyId)
-                .avroSchema(schema)
+                .avroSchema(schemaOrNullIfBlank())
                 .transactionId(transactionId)
                 .build();
+    }
+
+    private String schemaOrNullIfBlank() {
+        return schema == null || schema.isBlank() ? null : schema;
     }
 
     /**
