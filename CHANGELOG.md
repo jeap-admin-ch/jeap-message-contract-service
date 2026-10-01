@@ -5,13 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-> - Spring Boot 3 maintenance (bug fixes, patches, and regular updates) continues on branch `release/springboot3`.
 > - The Spring Boot 4 upgrade process happens on the `master` branch, with the goal of releasing Spring Boot 4 compatible versions of all jeap components in a single major release.
 
 ## [12.7.1] - 2026-09-30
 
 ### Fixed
 - Preserve version statuses for valid message contracts when another referenced message type is missing or ambiguous in the same registry.
+
+### Dependencies
+- **ch.admin.bit.jeap:jeap-spring-boot-parent**: 41.10.0 → 41.13.0 (minor)
 
 ## [12.7.0] - 2026-09-27
 
