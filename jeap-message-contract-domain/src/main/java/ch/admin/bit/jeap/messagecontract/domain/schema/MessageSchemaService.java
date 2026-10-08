@@ -10,8 +10,6 @@ import org.apache.avro.Schema;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static ch.admin.bit.jeap.messagecontract.messagetype.repository.Elapsed.elapsedMs;
 import static java.util.stream.Collectors.groupingBy;
@@ -20,8 +18,6 @@ import static java.util.stream.Collectors.groupingBy;
 @RequiredArgsConstructor
 @Slf4j
 public class MessageSchemaService {
-
-    private static final Pattern VERSIONED_NAMESPACE_PATTERN = Pattern.compile(".*\\.v(\\d+)");
 
     private final MessageTypeRepositoryFactory typeRepositoryFactory;
 
@@ -75,6 +71,11 @@ public class MessageSchemaService {
                 messageContract.getMessageTypeVersion());
     }
 
+    /**
+     * Validates that the uploaded schema is the avro record schema of the declared message type. The message type
+     * version is not validated: the version is not part of the schema, and a <code>.v{n}</code> namespace suffix
+     * declares an api or domain generation in several message type registries, unrelated to the message type version.
+     */
     private static void validateUploadedSchema(MessageContract messageContract) {
         Schema schema;
         try {
@@ -88,28 +89,6 @@ public class MessageSchemaService {
                     "The uploaded avro schema for the message type %s:%s does not define the record %s but '%s'"
                             .formatted(messageContract.getMessageType(), messageContract.getMessageTypeVersion(),
                                     messageContract.getMessageType(), schema.getFullName()));
-        }
-        validateUploadedSchemaVersion(messageContract, schema);
-    }
-
-    /**
-     * Message type versions are declared in the namespace of the avro schema as <code>.v{major}</code> as of major
-     * version 2. If the namespace of the uploaded schema follows that convention, it has to match the major version of
-     * the message type version of the contract. Namespaces not following the convention are not validated, as the
-     * namespace of a message type is not enforced by the message type registry.
-     */
-    private static void validateUploadedSchemaVersion(MessageContract messageContract, Schema schema) {
-        Matcher namespaceMatcher = VERSIONED_NAMESPACE_PATTERN.matcher(schema.getNamespace() == null ? "" : schema.getNamespace());
-        if (!namespaceMatcher.matches()) {
-            return;
-        }
-        String schemaMajorVersion = namespaceMatcher.group(1);
-        String contractMajorVersion = messageContract.getMessageTypeVersion().split("\\.")[0];
-        if (!schemaMajorVersion.equals(contractMajorVersion)) {
-            throw new IllegalArgumentException(
-                    "The uploaded avro schema '%s' for the message type %s:%s declares the major version %s"
-                            .formatted(schema.getFullName(), messageContract.getMessageType(),
-                                    messageContract.getMessageTypeVersion(), schemaMajorVersion));
         }
     }
 }

@@ -309,9 +309,12 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
-    void putContractsWhenUploadedSchemaDeclaresAnotherMajorVersionThenShouldReturnBadRequest() {
-        // given: a consumer contract for v1 uploaded with the record schema of v2, which declares the major version
-        // in its namespace
+    void putContractsWhenUploadedSchemaNamespaceDeclaresAnotherVersionThenShouldBeAccepted() {
+        // given: a consumer contract for v1 uploaded with the record schema of v2, whose namespace ends with '.v2'.
+        // The version in a namespace is not validated: message type registries use it for an api or domain
+        // generation unrelated to the message type version, for example WvsJourneyAcceptedEvent 10.0.0 in
+        // 'ch.admin.ezv.wvs.domainevent.journey.v8' or JmeCreateDeclarationV2Command 1.1.0 in
+        // 'ch.admin.bit.jme.declaration.v2'.
         NewMessageContractDto consumerContract =
                 new NewMessageContractDto(ACTIV_ZONE_ENTERED_EVENT, "1.0.0",
                         TEST_TOPIC, MessageContractRole.CONSUMER,
@@ -322,7 +325,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
                         .header(AUTHORIZATION, BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(new CreateMessageContractsDto(List.of(consumerContract)))))
-                .andExpect(status().isBadRequest()); // 400
+                .andExpect(status().isCreated()); // 201
     }
 
     @SuppressWarnings("resource")
