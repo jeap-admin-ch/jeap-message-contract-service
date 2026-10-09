@@ -10,7 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [12.11.0] - 2026-10-09
 
 ### Added
-- The deployment registration `PUT /api/deployments/{appName}/{appVersion}/{environment}` accepts the optional request parameter `noMessageContracts`. With `noMessageContracts=true` the deployment of an application version without message contracts is registered instead of being ignored, so that the contracts of the previously deployed version are no longer reported as deployed after an application has removed its last producer or consumer. The request is rejected with status 400 if contracts have been uploaded for the application version.
+- The deployment registration `PUT /api/deployments/{appName}/{appVersion}/{environment}` accepts the optional request parameter `noMessageContracts`. With `noMessageContracts=true` the deployment of an application version without message contracts is registered instead of being ignored, so that the contracts of the previously deployed version are no longer reported as deployed after an application has removed its last producer or consumer. The declaration requires an application known to the service and is ignored if the application version does have contracts, in which case the deployment is registered with them. Callers setting the parameter should treat a response other than 201 as a failed declaration.
 
 ## [12.10.1] - 2026-10-08
 

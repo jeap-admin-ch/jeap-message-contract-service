@@ -125,6 +125,9 @@ class DeploymentControllerTest extends ControllerTestBase {
 
     @Test
     void putDeploymentNoMessageContractsAppWithoutContractsDeploymentRegistered() throws Exception {
+        // the app is known to the service, but the deployed version has no contracts
+        messageContractRepository.save(createContract(
+                MY_APP_NAME, "previousAppVersion", "test", "test", MessageContractRole.CONSUMER));
         String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
 
         mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, MY_APP_NAME, APP_VERSION, "prod")
@@ -143,16 +146,31 @@ class DeploymentControllerTest extends ControllerTestBase {
     }
 
     @Test
-    void putDeploymentNoMessageContractsAppWithContractsBadRequest() throws Exception {
+    void putDeploymentNoMessageContractsAppWithContractsDeploymentRegistered() throws Exception {
         messageContractRepository.save(createContract(
                 MY_APP_NAME, APP_VERSION, "test", "test", MessageContractRole.CONSUMER));
         String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
 
+        // the declaration is ignored, as the contracts belong to the deployed app version
         mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, MY_APP_NAME, APP_VERSION, "prod")
                         .queryParam("noMessageContracts", "true")
                         .header(AUTHORIZATION, basicAuthHeader)
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest()); // 400
+                .andExpect(status().isCreated()); // 201
+
+        assertThat(getDeploymentDtos()).singleElement()
+                .satisfies(dto -> assertThat(dto.appVersion()).isEqualTo(APP_VERSION));
+    }
+
+    @Test
+    void putDeploymentNoMessageContractsAppNameUnknownDeploymentIgnored() throws Exception {
+        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
+
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, "appUnknown", APP_VERSION, "prod")
+                        .queryParam("noMessageContracts", "true")
+                        .header(AUTHORIZATION, basicAuthHeader)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk()); // 200
 
         assertThat(getDeploymentDtos()).isEmpty();
     }

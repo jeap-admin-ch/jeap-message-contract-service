@@ -36,26 +36,37 @@ public class DeploymentService {
     /**
      * Saves a deployment of an application version on an environment.
      * <p>
-     * An application version without contracts is only known to this service if the caller explicitly declares that
-     * the deployed application version has no message contracts. Without that declaration the absence of contracts
-     * cannot be distinguished from a failed contract publication, and the deployment is ignored.
+     * A deployment of an application version without contracts is ignored, as the absence of contracts cannot be
+     * distinguished from a failed contract publication. The caller can declare that the deployed application version
+     * has no message contracts, in which case the deployment is saved for an application known to this service. The
+     * declaration is ignored if the application version does have contracts: those contracts belong to the deployed
+     * version and are reported as deployed.
      *
      * @param noMessageContracts the caller declares that the deployed application version has no message contracts
      * @return the saved deployment, or null if the deployment has been ignored
      */
     @Transactional
     public Deployment saveNewDeployment(String appName, String appVersion, String environment, boolean noMessageContracts) {
-        boolean hasContracts = messageContractRepository.existsByAppNameAndAppVersion(appName, appVersion);
-        if (noMessageContracts) {
-            if (hasContracts) {
-                throw new IllegalArgumentException("Application '%s' version '%s' has message contracts, it must not be deployed as an application version without message contracts"
-                        .formatted(appName, appVersion));
+        if (messageContractRepository.existsByAppNameAndAppVersion(appName, appVersion)) {
+            if (noMessageContracts) {
+                log.warn("Deployment of app={}:{} on environment={} has been declared to have no message contracts, " +
+                                "but contracts are registered for this application version. Saving the deployment with its contracts.",
+                        appName, appVersion, environment);
             }
-            log.info("Saving deployment of app={}:{} on environment={} declared to have no message contracts", appName, appVersion, environment);
-        } else if (!hasContracts) {
-            log.info("Application with name '{}' not found in the db. Deployment ignored and not saved", appName);
-            return null;
+            return save(appName, appVersion, environment);
         }
+
+        if (noMessageContracts && messageContractRepository.existsByAppName(appName)) {
+            log.info("Saving deployment of app={}:{} on environment={} declared to have no message contracts",
+                    appName, appVersion, environment);
+            return save(appName, appVersion, environment);
+        }
+
+        log.info("Application with name '{}' not found in the db. Deployment ignored and not saved", appName);
+        return null;
+    }
+
+    private Deployment save(String appName, String appVersion, String environment) {
         Deployment deployment = Deployment.builder()
                 .appName(appName)
                 .appVersion(appVersion)

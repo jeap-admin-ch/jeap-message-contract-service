@@ -42,11 +42,12 @@ public class DeploymentController {
             description = "Set noMessageContracts to true to register the deployment of an app version that has no message contracts, " +
                     "for instance after the last producer or consumer has been removed from the app. Without this parameter, " +
                     "the deployment of an app version without contracts is ignored, as the absence of contracts cannot be " +
-                    "distinguished from a failed contract publication.",
+                    "distinguished from a failed contract publication. The declaration requires an app known to this service and " +
+                    "is ignored if the app version does have contracts, as those contracts belong to the deployed version. " +
+                    "Callers setting the parameter should treat a response other than 201 as a failed declaration.",
             responses = {
                     @ApiResponse(responseCode = "201", description = "Deployment successfully registered"),
-                    @ApiResponse(responseCode = "200", description = "Deployment ignored because appName and/or appVersion are unknown"),
-                    @ApiResponse(responseCode = "400", description = "Deployment declared to have no message contracts, but contracts have been registered for the app version")
+                    @ApiResponse(responseCode = "200", description = "Deployment ignored because appName and/or appVersion are unknown")
             })
     @PreAuthorize("hasAnyRole('messagecontract-write', 'messagecontract-contract-upload')")
     public ResponseEntity<String> registerNewDeployment(@NotBlank @PathVariable String appName,
