@@ -156,6 +156,28 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
+    void getCompatibilityWhenConsumerRemovedItsLastContractThenConsumerIsNoLongerAnInteraction() {
+        // given: a consumer consuming v2, which is incompatible with v1 of the message the producer is using
+        putActivZoneEnteredEventContract(VERSION_2_0_0, MessageContractRole.CONSUMER, TEST_CONSUMER_APP, "1.0");
+        putActivZoneEnteredEventContract("1.0.0", MessageContractRole.PRODUCER, TEST_PRODUCER_APP, "2.0");
+        notifyAppDeployedOnEnv(TEST_CONSUMER_APP, "1.0", "prod");
+
+        // when the consumer deploys a version without message contracts
+        notifyAppDeployedWithoutMessageContractsOnEnv(TEST_CONSUMER_APP, "2.0", "prod");
+
+        // then the producer is compatible again, as the consumer does not consume the message type anymore
+        MvcResult mvcResult = doCompatibilityGetRequest(TEST_PRODUCER_APP, "2.0", "prod")
+                .andExpect(status().is2xxSuccessful())
+                .andReturn();
+
+        CompatibilityCheckResult producerResult = jsonMapper.readValue(mvcResult.getResponse().getContentAsString(), CompatibilityCheckResult.class);
+        assertThat(producerResult.compatible()).isTrue();
+        assertThat(producerResult.interactions()).isEmpty();
+        assertThat(producerResult.incompatibilities()).isEmpty();
+    }
+
+    @Test
+    @SneakyThrows
     void getCompatibilityWhenTwoProducerContractsAreCompatibleThenShouldReturnOk() {
         // given: two consumer/producer interactions with compatible schemas
         putActivZoneEnteredEventContract(VERSION_2_0_0, MessageContractRole.CONSUMER, TEST_CONSUMER_APP, "1.0");
@@ -342,6 +364,16 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
 
         mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, appName, appVersion, environment)
+                        .header(AUTHORIZATION, basicAuthHeader))
+                .andExpect(status().isCreated()); // 201
+    }
+
+    @SneakyThrows
+    protected void notifyAppDeployedWithoutMessageContractsOnEnv(String appName, String appVersion, String environment) {
+        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
+
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, appName, appVersion, environment)
+                        .queryParam("noMessageContracts", "true")
                         .header(AUTHORIZATION, basicAuthHeader))
                 .andExpect(status().isCreated()); // 201
     }

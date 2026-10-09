@@ -14,6 +14,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 @DataJpaTest
 @ContextConfiguration(classes = {PersistenceConfiguration.class, DomainConfiguration.class})
@@ -48,6 +49,39 @@ class DeploymentServiceTest {
 
         deploymentService.saveNewDeployment("app", "v1", "ABN");
         assertThat(deploymentService.findLast10Deployments()).hasSize(1);
+    }
+
+    @Test
+    void saveNewDeploymentNoMessageContractsDeclaredDeploymentSaved() {
+        Deployment deployment = deploymentService.saveNewDeployment("app", "v2", "ABN", true);
+
+        assertThat(deployment).isNotNull();
+        assertThat(deploymentService.findLast10Deployments()).hasSize(1);
+    }
+
+    @Test
+    void saveNewDeploymentNoMessageContractsDeclaredButContractsExistDeploymentRejected() {
+        messageContractRepository.saveContracts(List.of(
+                MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
+        ));
+
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> deploymentService.saveNewDeployment("app", "v1", "ABN", true))
+                .withMessageContaining("app")
+                .withMessageContaining("v1");
+        assertThat(deploymentService.findLast10Deployments()).isEmpty();
+    }
+
+    @Test
+    void saveNewDeploymentNoMessageContractsDeclaredContractsOfOtherAppVersionIgnored() {
+        messageContractRepository.saveContracts(List.of(
+                MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
+        ));
+
+        Deployment deployment = deploymentService.saveNewDeployment("app", "v2", "ABN", true);
+
+        assertThat(deployment).isNotNull();
+        assertThat(deployment.getAppVersion()).isEqualTo("v2");
     }
 
     @Test

@@ -38,16 +38,23 @@ public class DeploymentController {
     }
 
     @PutMapping(path = "/{appName}/{appVersion}/{environment}")
-    @Operation(summary = "Register deployment for an app version on a environment", responses = {
-            @ApiResponse(responseCode = "201", description = "Deployment successfully registered"),
-            @ApiResponse(responseCode = "200", description = "Deployment ignored because appName and/or appVersion are unknown")
-    })
+    @Operation(summary = "Register deployment for an app version on a environment",
+            description = "Set noMessageContracts to true to register the deployment of an app version that has no message contracts, " +
+                    "for instance after the last producer or consumer has been removed from the app. Without this parameter, " +
+                    "the deployment of an app version without contracts is ignored, as the absence of contracts cannot be " +
+                    "distinguished from a failed contract publication.",
+            responses = {
+                    @ApiResponse(responseCode = "201", description = "Deployment successfully registered"),
+                    @ApiResponse(responseCode = "200", description = "Deployment ignored because appName and/or appVersion are unknown"),
+                    @ApiResponse(responseCode = "400", description = "Deployment declared to have no message contracts, but contracts have been registered for the app version")
+            })
     @PreAuthorize("hasAnyRole('messagecontract-write', 'messagecontract-contract-upload')")
     public ResponseEntity<String> registerNewDeployment(@NotBlank @PathVariable String appName,
             @NotBlank @PathVariable String appVersion,
-            @NotBlank @PathVariable String environment) {
-        log.info("Save new Deployment: app={}:{} environment={}", appName, appVersion, environment);
-        final Deployment deployment = deploymentService.saveNewDeployment(appName, appVersion, environment.toUpperCase());
+            @NotBlank @PathVariable String environment,
+            @RequestParam(required = false, defaultValue = "false") boolean noMessageContracts) {
+        log.info("Save new Deployment: app={}:{} environment={} noMessageContracts={}", appName, appVersion, environment, noMessageContracts);
+        final Deployment deployment = deploymentService.saveNewDeployment(appName, appVersion, environment.toUpperCase(), noMessageContracts);
 
         if (deployment != null) {
             return ResponseEntity.status(HttpStatus.CREATED).body("Deployment successfully registered");

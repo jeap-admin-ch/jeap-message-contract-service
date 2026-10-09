@@ -7,15 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > - The Spring Boot 4 upgrade process happens on the `master` branch, with the goal of releasing Spring Boot 4 compatible versions of all jeap components in a single major release.
 
-## [12.12.0] - 2026-10-12
+## [12.11.0] - 2026-10-09
 
-### Dependencies
-- **ch.admin.bit.jeap:jeap-spring-boot-parent**: 41.18.1 → 41.19.0 (minor)
-
-## [12.11.0] - 2026-10-11
-
-### Dependencies
-- **ch.admin.bit.jeap:jeap-spring-boot-parent**: 41.17.1 → 41.18.1 (minor)
+### Added
+- The deployment registration `PUT /api/deployments/{appName}/{appVersion}/{environment}` accepts the optional request parameter `noMessageContracts`. With `noMessageContracts=true` the deployment of an application version without message contracts is registered instead of being ignored, so that the contracts of the previously deployed version are no longer reported as deployed after an application has removed its last producer or consumer. The request is rejected with status 400 if contracts have been uploaded for the application version.
 
 ## [12.10.1] - 2026-10-08
 

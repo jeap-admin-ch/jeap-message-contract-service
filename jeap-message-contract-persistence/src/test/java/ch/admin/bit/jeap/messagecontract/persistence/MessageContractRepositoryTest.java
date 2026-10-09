@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ContextConfiguration;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -274,6 +275,53 @@ class MessageContractRepositoryTest {
                         item -> assertThat(item)
                                 .hasFieldOrPropertyWithValue("appName", "app2")
                                 .hasFieldOrPropertyWithValue("appVersion", "v2"));
+    }
+
+    @Test
+    void findMessageContractInfosByEnvironmentLatestDeploymentWithoutContracts() {
+        // given: app1 removed its last contract in v2, app2 is unchanged
+        MessageContract app1v1 = createContract("app1", "v1", null, null, MessageContractRole.CONSUMER, null);
+        MessageContract app2v1 = createContract("app2", "v1", null, null, MessageContractRole.PRODUCER, null);
+        messageContractRepository.saveContracts(List.of(app1v1, app2v1));
+
+        ZonedDateTime now = ZonedDateTime.now();
+        deploymentRepository.save(Deployment.builder().appName("app1").appVersion("v1").environment("prod").overrideCreatedAt(now.minusDays(2)).build());
+        deploymentRepository.save(Deployment.builder().appName("app1").appVersion("v1").environment("ref").overrideCreatedAt(now.minusDays(2)).build());
+        deploymentRepository.save(Deployment.builder().appName("app2").appVersion("v1").environment("prod").overrideCreatedAt(now.minusDays(2)).build());
+        deploymentRepository.save(Deployment.builder().appName("app1").appVersion("v2").environment("prod").overrideCreatedAt(now.minusDays(1)).build());
+
+        // when & then: the contracts of v1 are not deployed on prod anymore
+        assertThat(messageContractRepository.findMessageContractInfosByEnvironment("prod"))
+                .satisfiesExactly(
+                        item -> assertThat(item)
+                                .hasFieldOrPropertyWithValue("appName", "app2")
+                                .hasFieldOrPropertyWithValue("appVersion", "v1"));
+
+        // other environments are not affected
+        assertThat(messageContractRepository.findMessageContractInfosByEnvironment("ref"))
+                .satisfiesExactly(
+                        item -> assertThat(item)
+                                .hasFieldOrPropertyWithValue("appName", "app1")
+                                .hasFieldOrPropertyWithValue("appVersion", "v1"));
+    }
+
+    @Test
+    void findMessageContractInfosByEnvironmentRollbackToVersionWithContracts() {
+        // given: the deployment of v2 without contracts is rolled back to v1
+        MessageContract app1v1 = createContract("app1", "v1", null, null, MessageContractRole.CONSUMER, null);
+        messageContractRepository.saveContracts(List.of(app1v1));
+
+        ZonedDateTime now = ZonedDateTime.now();
+        deploymentRepository.save(Deployment.builder().appName("app1").appVersion("v1").environment("prod").overrideCreatedAt(now.minusDays(2)).build());
+        deploymentRepository.save(Deployment.builder().appName("app1").appVersion("v2").environment("prod").overrideCreatedAt(now.minusDays(1)).build());
+        deploymentRepository.save(Deployment.builder().appName("app1").appVersion("v1").environment("prod").overrideCreatedAt(now).build());
+
+        // when & then
+        assertThat(messageContractRepository.findMessageContractInfosByEnvironment("prod"))
+                .satisfiesExactly(
+                        item -> assertThat(item)
+                                .hasFieldOrPropertyWithValue("appName", "app1")
+                                .hasFieldOrPropertyWithValue("appVersion", "v1"));
     }
 
     @Test

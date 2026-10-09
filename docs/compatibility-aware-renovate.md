@@ -25,7 +25,8 @@ GET /api/renovate/message-types/{packageName}
 | `environment` | no | Nonblank deployment environment, default `PROD`. Other environments are supported. |
 
 `appVersion` is never request input. MCS uses it only internally to join each latest deployment to the contracts
-uploaded for that deployed application version.
+uploaded for that deployed application version. An application whose latest deployment has been registered with
+`noMessageContracts=true` has no deployed contracts and is therefore not taken into account.
 
 ### Global mode
 

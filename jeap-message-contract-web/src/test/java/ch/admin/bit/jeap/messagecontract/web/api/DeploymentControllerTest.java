@@ -124,6 +124,48 @@ class DeploymentControllerTest extends ControllerTestBase {
     }
 
     @Test
+    void putDeploymentNoMessageContractsAppWithoutContractsDeploymentRegistered() throws Exception {
+        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
+
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, MY_APP_NAME, APP_VERSION, "prod")
+                        .queryParam("noMessageContracts", "true")
+                        .header(AUTHORIZATION, basicAuthHeader)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isCreated()); // 201
+
+        assertThat(getDeploymentDtos())
+                .singleElement()
+                .satisfies(dto -> {
+                    assertThat(dto.appName()).isEqualTo(MY_APP_NAME);
+                    assertThat(dto.appVersion()).isEqualTo(APP_VERSION);
+                    assertThat(dto.environment()).isEqualTo("PROD");
+                });
+    }
+
+    @Test
+    void putDeploymentNoMessageContractsAppWithContractsBadRequest() throws Exception {
+        messageContractRepository.save(createContract(
+                MY_APP_NAME, APP_VERSION, "test", "test", MessageContractRole.CONSUMER));
+        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
+
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, MY_APP_NAME, APP_VERSION, "prod")
+                        .queryParam("noMessageContracts", "true")
+                        .header(AUTHORIZATION, basicAuthHeader)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest()); // 400
+
+        assertThat(getDeploymentDtos()).isEmpty();
+    }
+
+    @Test
+    void putDeploymentNoMessageContractsUnauthorized() throws Exception {
+        mockMvc.perform(put("/api/deployments/test/test/abn")
+                        .queryParam("noMessageContracts", "true")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized()); // 401
+    }
+
+    @Test
     void deleteDeploymentUnauthorized() throws Exception {
         mockMvc.perform(delete("/api/deployments/test/abn"))
                 .andExpect(status().isUnauthorized()); // 401
@@ -163,6 +205,18 @@ class DeploymentControllerTest extends ControllerTestBase {
         );
 
         assertThat(dtos).isEmpty();
+    }
+
+    private List<DeploymentDto> getDeploymentDtos() throws Exception {
+        MvcResult result = mockMvc.perform(get(API_DEPLOYMENTS)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        return jsonMapper.readValue(
+                result.getResponse().getContentAsString(),
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
+        );
     }
 
     private MessageContract createContract(String appName, String appVersion, String commitHash, String branch, MessageContractRole role) {
