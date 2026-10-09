@@ -1,9 +1,9 @@
 package ch.admin.bit.jeap.messagecontract.web.api;
 
+import ch.admin.bit.jeap.messagecontract.domain.DeploymentRegistration;
 import ch.admin.bit.jeap.messagecontract.domain.DeploymentService;
 import ch.admin.bit.jeap.messagecontract.domain.compatibility.CompatibilityCheckResult;
 import ch.admin.bit.jeap.messagecontract.domain.compatibility.CompatibilityService;
-import ch.admin.bit.jeap.messagecontract.persistence.model.Deployment;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.DeploymentDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -44,7 +44,8 @@ public class DeploymentController {
                     "the deployment of an app version without contracts is ignored, as the absence of contracts cannot be " +
                     "distinguished from a failed contract publication. The declaration requires an app known to this service and " +
                     "is ignored if the app version does have contracts, as those contracts belong to the deployed version. " +
-                    "Callers setting the parameter should treat a response other than 201 as a failed declaration.",
+                    "Callers setting the parameter should treat a response other than 201 as a failed declaration, and can read " +
+                    "the response body to tell whether the declaration has been applied.",
             responses = {
                     @ApiResponse(responseCode = "201", description = "Deployment successfully registered"),
                     @ApiResponse(responseCode = "200", description = "Deployment ignored because appName and/or appVersion are unknown")
@@ -55,13 +56,18 @@ public class DeploymentController {
             @NotBlank @PathVariable String environment,
             @RequestParam(required = false, defaultValue = "false") boolean noMessageContracts) {
         log.info("Save new Deployment: app={}:{} environment={} noMessageContracts={}", appName, appVersion, environment, noMessageContracts);
-        final Deployment deployment = deploymentService.saveNewDeployment(appName, appVersion, environment.toUpperCase(), noMessageContracts);
+        DeploymentRegistration registration = deploymentService.registerNewDeployment(
+                appName, appVersion, environment.toUpperCase(), noMessageContracts);
 
-        if (deployment != null) {
-            return ResponseEntity.status(HttpStatus.CREATED).body("Deployment successfully registered");
-        } else {
-            return ResponseEntity.status(HttpStatus.OK).body("Deployment ignored because appName and/or appVersion are unknown");
-        }
+        return switch (registration.outcome()) {
+            case REGISTERED -> ResponseEntity.status(HttpStatus.CREATED)
+                    .body("Deployment successfully registered");
+            case REGISTERED_DECLARATION_IGNORED -> ResponseEntity.status(HttpStatus.CREATED)
+                    .body("Deployment successfully registered with the message contracts of this app version, " +
+                            "the declaration that it has no message contracts has been ignored");
+            case IGNORED -> ResponseEntity.status(HttpStatus.OK)
+                    .body("Deployment ignored because appName and/or appVersion are unknown");
+        };
     }
 
     @DeleteMapping(path = "/{appName}/{environment}")

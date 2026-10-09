@@ -52,51 +52,66 @@ class DeploymentServiceTest {
     }
 
     @Test
-    void saveNewDeploymentNoMessageContractsDeclaredDeploymentSaved() {
+    void saveNewDeploymentAppKnownButVersionWithoutContractsNotDeclaredDeploymentNotSaved() {
         messageContractRepository.saveContracts(List.of(
                 MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
         ));
 
-        Deployment deployment = deploymentService.saveNewDeployment("app", "v2", "ABN", true);
-
-        assertThat(deployment).isNotNull();
-        assertThat(deployment.getAppVersion()).isEqualTo("v2");
+        // without the declaration, a version without contracts must not become the deployed one
+        assertThat(deploymentService.saveNewDeployment("app", "v2", "ABN")).isNull();
+        assertThat(deploymentService.registerNewDeployment("app", "v2", "ABN", false).outcome())
+                .isEqualTo(DeploymentRegistration.Outcome.IGNORED);
+        assertThat(deploymentService.findLast10Deployments()).isEmpty();
     }
 
     @Test
-    void saveNewDeploymentNoMessageContractsDeclaredAppWithOnlyDeletedContractsDeploymentSaved() {
+    void registerNewDeploymentNoMessageContractsDeclaredDeploymentRegistered() {
+        messageContractRepository.saveContracts(List.of(
+                MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
+        ));
+
+        DeploymentRegistration registration = deploymentService.registerNewDeployment("app", "v2", "ABN", true);
+
+        assertThat(registration.outcome()).isEqualTo(DeploymentRegistration.Outcome.REGISTERED);
+        assertThat(registration.deployment()).isNotNull();
+        assertThat(registration.deployment().getAppVersion()).isEqualTo("v2");
+    }
+
+    @Test
+    void registerNewDeploymentNoMessageContractsDeclaredAppWithOnlyDeletedContractsDeploymentRegistered() {
         messageContractRepository.saveContracts(List.of(
                 MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
         ));
         messageContractRepository.deleteContract("app", "v1", "TestType1", "1.0.0", "topic", MessageContractRole.CONSUMER);
 
-        Deployment deployment = deploymentService.saveNewDeployment("app", "v2", "ABN", true);
+        DeploymentRegistration registration = deploymentService.registerNewDeployment("app", "v2", "ABN", true);
 
-        assertThat(deployment).isNotNull();
+        assertThat(registration.outcome()).isEqualTo(DeploymentRegistration.Outcome.REGISTERED);
     }
 
     @Test
-    void saveNewDeploymentNoMessageContractsDeclaredAppNameUnknownDeploymentIgnored() {
+    void registerNewDeploymentNoMessageContractsDeclaredAppNameUnknownDeploymentIgnored() {
         messageContractRepository.saveContracts(List.of(
                 MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
         ));
 
-        Deployment deployment = deploymentService.saveNewDeployment("app-typo", "v1", "ABN", true);
+        DeploymentRegistration registration = deploymentService.registerNewDeployment("app-typo", "v1", "ABN", true);
 
-        assertThat(deployment).isNull();
+        assertThat(registration.outcome()).isEqualTo(DeploymentRegistration.Outcome.IGNORED);
+        assertThat(registration.deployment()).isNull();
         assertThat(deploymentService.findLast10Deployments()).isEmpty();
     }
 
     @Test
-    void saveNewDeploymentNoMessageContractsDeclaredButContractsExistDeploymentSavedWithItsContracts() {
+    void registerNewDeploymentNoMessageContractsDeclaredButContractsExistDeclarationIgnored() {
         messageContractRepository.saveContracts(List.of(
                 MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
         ));
 
-        Deployment deployment = deploymentService.saveNewDeployment("app", "v1", "ABN", true);
+        DeploymentRegistration registration = deploymentService.registerNewDeployment("app", "v1", "ABN", true);
 
-        assertThat(deployment).isNotNull();
-        assertThat(deployment.getAppVersion()).isEqualTo("v1");
+        assertThat(registration.outcome()).isEqualTo(DeploymentRegistration.Outcome.REGISTERED_DECLARATION_IGNORED);
+        assertThat(registration.deployment().getAppVersion()).isEqualTo("v1");
     }
 
     @Test

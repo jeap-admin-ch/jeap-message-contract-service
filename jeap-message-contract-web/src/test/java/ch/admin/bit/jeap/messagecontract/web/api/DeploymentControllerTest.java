@@ -18,7 +18,9 @@ import java.util.Base64;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class DeploymentControllerTest extends ControllerTestBase {
@@ -76,19 +78,7 @@ class DeploymentControllerTest extends ControllerTestBase {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk()); // 200
 
-        // GET /api/deployments and assert empty list
-        MvcResult result = mockMvc.perform(get(API_DEPLOYMENTS)
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        String responseBody = result.getResponse().getContentAsString();
-        List<DeploymentDto> dtos = jsonMapper.readValue(
-                responseBody,
-                jsonMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
-        );
-
-        assertThat(dtos).isEmpty();
+        assertThat(getDeploymentDtos()).isEmpty();
     }
 
     @Test
@@ -107,20 +97,8 @@ class DeploymentControllerTest extends ControllerTestBase {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isCreated()); // 201
 
-        // GET /api/deployments and assert the list contains one deployment
-        MvcResult result = mockMvc.perform(get(API_DEPLOYMENTS)
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        String responseBody = result.getResponse().getContentAsString();
-        List<DeploymentDto> dtos = jsonMapper.readValue(
-                responseBody,
-                jsonMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
-        );
-
-        assertThat(dtos).hasSize(1);
-        assertThat(dtos.getFirst().appName()).isEqualTo(MY_APP_NAME);
+        assertThat(getDeploymentDtos()).singleElement()
+                .satisfies(dto -> assertThat(dto.appName()).isEqualTo(MY_APP_NAME));
     }
 
     @Test
@@ -156,7 +134,8 @@ class DeploymentControllerTest extends ControllerTestBase {
                         .queryParam("noMessageContracts", "true")
                         .header(AUTHORIZATION, basicAuthHeader)
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isCreated()); // 201
+                .andExpect(status().isCreated()) // 201
+                .andExpect(content().string(containsString("declaration that it has no message contracts has been ignored")));
 
         assertThat(getDeploymentDtos()).singleElement()
                 .satisfies(dto -> assertThat(dto.appVersion()).isEqualTo(APP_VERSION));
@@ -210,19 +189,7 @@ class DeploymentControllerTest extends ControllerTestBase {
                         .header(AUTHORIZATION, basicAuthHeader))
                 .andExpect(status().isOk()); // 200
 
-        // GET /api/deployments and assert the list is empty
-        MvcResult result = mockMvc.perform(get(API_DEPLOYMENTS)
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        String responseBody = result.getResponse().getContentAsString();
-        List<DeploymentDto> dtos = jsonMapper.readValue(
-                responseBody,
-                jsonMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
-        );
-
-        assertThat(dtos).isEmpty();
+        assertThat(getDeploymentDtos()).isEmpty();
     }
 
     private List<DeploymentDto> getDeploymentDtos() throws Exception {
