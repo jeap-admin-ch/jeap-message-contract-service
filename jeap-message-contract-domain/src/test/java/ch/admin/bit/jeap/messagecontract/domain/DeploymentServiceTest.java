@@ -53,6 +53,8 @@ class DeploymentServiceTest {
 
     @Test
     void saveNewDeploymentVersionWithoutContractsReplacesPreviousDeployment() {
+        // the deployed version is resolved by created_at, so this test relies on strictly increasing timestamps;
+        // MessageContractRepositoryTest pins the same semantics with explicit timestamps
         messageContractRepository.saveContracts(List.of(
                 MessageContractTestFactory.createContract("app", "v1", "TestType1", null)));
         deploymentService.saveNewDeployment("app", "v1", "PROD");
@@ -66,6 +68,21 @@ class DeploymentServiceTest {
         assertThat(messageContractRepository.getContractsForAppVersion("app", "v1")).hasSize(1);
         assertThat(deploymentService.findLast10Deployments()).hasSize(3);
 
+        deploymentService.saveNewDeployment("app", "v1", "PROD");
+        assertThat(messageContractRepository.findMessageContractInfosByEnvironment("PROD")).hasSize(1);
+    }
+
+    @Test
+    void saveNewDeploymentWrongAppVersionIsFixedByRegisteringTheCorrectVersion() {
+        messageContractRepository.saveContracts(List.of(
+                MessageContractTestFactory.createContract("app", "v1", "TestType1", null)));
+        deploymentService.saveNewDeployment("app", "v1", "PROD");
+
+        // a version registered differently from the one the contracts were uploaded for hides the contracts
+        deploymentService.saveNewDeployment("app", "wrong-version", "PROD");
+        assertThat(messageContractRepository.findMessageContractInfosByEnvironment("PROD")).isEmpty();
+
+        // re-registering the correct version restores them without deleting anything
         deploymentService.saveNewDeployment("app", "v1", "PROD");
         assertThat(messageContractRepository.findMessageContractInfosByEnvironment("PROD")).hasSize(1);
     }

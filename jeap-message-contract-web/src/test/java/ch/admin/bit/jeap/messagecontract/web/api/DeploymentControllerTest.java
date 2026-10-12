@@ -67,7 +67,7 @@ class DeploymentControllerTest extends ControllerTestBase {
 
 
     @Test
-    void putDeploymentAppNotDefined() throws Exception {
+    void putDeploymentAppWithoutContractsIsRecorded() throws Exception {
         // PUT /api/deployments/{appName}/{appVersion}/{environment} with Basic Auth
         String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
 

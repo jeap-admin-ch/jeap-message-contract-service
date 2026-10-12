@@ -59,6 +59,8 @@ public interface JpaMessageContractRepository extends CrudRepository<MessageCont
 
     boolean existsByAppNameAndAppVersionAndDeletedFalse(String appName, String appVersion);
 
+    boolean existsByAppName(String appName);
+
     List<MessageContract> findAllByAppNameAndAppVersionAndDeletedFalse(String appName, String appVersion);
 
     List<MessageContract> findAllByAppNameAndAppVersionAndTransactionIdAndDeletedFalse(String appName, String appVersion, String transactionId);

@@ -11,6 +11,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 - Deployment registration always records the deployed application version, including versions without contracts and previously unknown applications, and returns HTTP 201. Previously, versions without contracts were ignored with HTTP 200, leaving the previous version's obsolete contracts marked as deployed. No pipeline flag or additional request is required. Missing contract publication is treated as an empty contract set.
+- Action required for service instances: the previous behaviour masked applications whose registered deployment version never matched the version their contracts were uploaded for. Such an application now drops out of the deployed contracts, of `version-status` and of the compatibility check. Before upgrading, check the latest deployment per application and environment for versions without contracts, and fix those build pipelines. The service logs a warning when a deployed application version has no contracts while other versions of the same application do.
 
 ## [12.10.1] - 2026-10-08
 
