@@ -8,6 +8,7 @@ import ch.admin.bit.jeap.messagecontract.web.api.dto.MessageContractDto;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.MessageContractRole;
 import ch.admin.bit.jeap.messagecontract.web.api.dto.MessageContractVersionStatusDto;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -53,7 +54,11 @@ public class ContractController {
     }
 
     @GetMapping(path = "/version-status", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "List deployed message contracts with their latest available message version")
+    @Operation(summary = "List deployed message contracts with their latest available message version",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Complete version status snapshot; empty if no contracts are deployed"),
+                    @ApiResponse(responseCode = "503", description = "Complete snapshot unavailable; retain previous data and retry later")
+            })
     public List<MessageContractVersionStatusDto> getVersionStatus(@NotBlank @RequestParam(name = "env") String environment) {
         return messageContractVersionService.getVersionStatus(environment).stream()
                 .map(MessageContractVersionStatusDto::fromDomainObject)

@@ -6,7 +6,6 @@ import ch.admin.bit.jeap.messagecontract.persistence.MessageContractInfo;
 import ch.admin.bit.jeap.messagecontract.persistence.MessageContractRepository;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -18,7 +17,6 @@ import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class MessageContractVersionService {
 
     private final MessageContractRepository contractRepository;
@@ -46,8 +44,8 @@ public class MessageContractVersionService {
     private List<MessageContractVersionStatus> getVersionStatus(String registryUrl,
                                                                  List<MessageContractInfo> contracts) {
         if (registryUrl.isBlank()) {
-            log.warn("Skipping latest message version lookup for {} contract(s) without a registry URL", contracts.size());
-            return List.of();
+            throw new MessageContractVersionStatusUnavailableException(
+                    "Cannot resolve complete message version status: deployed contracts have no registry URL");
         }
 
         Map<String, List<String>> versionsByMessageType;
@@ -55,25 +53,23 @@ public class MessageContractVersionService {
             versionsByMessageType = repository.getMessageTypeVersionsFromDefaultBranch(
                     contracts.stream().map(MessageContractInfo::getMessageType).collect(Collectors.toSet()));
         } catch (RuntimeException ex) {
-            log.warn("Skipping latest message version lookup for {} contract(s) from registry {}: {}",
-                    contracts.size(), registryUrl, ex.getMessage(), ex);
-            return List.of();
+            throw new MessageContractVersionStatusUnavailableException(
+                    "Cannot resolve complete message version status from registry " + registryUrl, ex);
         }
 
         return contracts.stream()
-                .map(contract -> toVersionStatusOrNull(contract, versionsByMessageType.get(contract.getMessageType())))
-                .filter(java.util.Objects::nonNull)
+                .map(contract -> toVersionStatusOrThrow(contract, versionsByMessageType.get(contract.getMessageType())))
                 .toList();
     }
 
-    private static MessageContractVersionStatus toVersionStatusOrNull(MessageContractInfo contract,
+    private static MessageContractVersionStatus toVersionStatusOrThrow(MessageContractInfo contract,
                                                                         List<String> versions) {
         try {
             return toVersionStatus(contract, versions);
         } catch (IllegalArgumentException ex) {
-            log.warn("Skipping latest message version status for {}:{} message type {}: {}",
-                    contract.getAppName(), contract.getAppVersion(), contract.getMessageType(), ex.getMessage());
-            return null;
+            throw new MessageContractVersionStatusUnavailableException(
+                    "Cannot resolve complete message version status for %s:%s message type %s"
+                            .formatted(contract.getAppName(), contract.getAppVersion(), contract.getMessageType()), ex);
         }
     }
 

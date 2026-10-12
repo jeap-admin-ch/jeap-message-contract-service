@@ -2,6 +2,7 @@ package ch.admin.bit.jeap.messagecontract.web.api;
 
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepoException;
 import ch.admin.bit.jeap.messagecontract.domain.renovate.RenovateRegistryException;
+import ch.admin.bit.jeap.messagecontract.domain.MessageContractVersionStatusUnavailableException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageConversionException;
@@ -15,6 +16,13 @@ import jakarta.validation.ConstraintViolationException;
 @Slf4j
 @RestControllerAdvice
 public class RestControllerExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler(MessageContractVersionStatusUnavailableException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public String handleIncompleteVersionStatus(MessageContractVersionStatusUnavailableException ex) {
+        log.error("Message contract version status is incomplete: {}", ex.getMessage(), ex);
+        return "Complete message contract version status is unavailable; retain the previous snapshot and retry later.";
+    }
 
     @ExceptionHandler({
             ConstraintViolationException.class,

@@ -452,6 +452,51 @@ class ContractControllerTest extends ControllerTestBase {
 
     @Test
     @SneakyThrows
+    void getVersionStatusReturnsEmptyCompleteSnapshotAfterLastContractIsRemoved() {
+        MessageContractDto contract = new MessageContractDto(MY_APP_NAME, VERSION1, ACTIV_ZONE_ENTERED_EVENT,
+                VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER, repoUrl, null, MASTER,
+                CompatibilityMode.BACKWARD, null);
+        putContracts(MY_APP_NAME, VERSION1, new CreateMessageContractsDto(List.of(createNew(contract))));
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, MY_APP_NAME, VERSION1, "prod")
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET)))
+                .andExpect(status().isCreated());
+        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, MY_APP_NAME, "without-contracts", "prod")
+                        .header(AUTHORIZATION, basicAuth(WRITE, SECRET)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get(API_CONTRACTS + "/version-status")
+                        .param("env", "prod")
+                        .header(AUTHORIZATION, basicAuth(READ, SECRET)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    @SneakyThrows
+    void getVersionStatusRejectsIncompleteSnapshotWhenOneOfTwoRegistriesIsUnavailable() {
+        MessageContractDto available = new MessageContractDto(MY_APP_NAME, VERSION1, ACTIV_ZONE_ENTERED_EVENT,
+                VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER, repoUrl, null, MASTER,
+                CompatibilityMode.BACKWARD, null);
+        putContracts(MY_APP_NAME, VERSION1, new CreateMessageContractsDto(List.of(createNew(available))));
+        MessageContractDto unavailable = new MessageContractDto("unavailable-app", VERSION1, ACTIV_ZONE_ENTERED_EVENT,
+                VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER, UNAVAILABLE_REGISTRY_URL, null, MASTER,
+                CompatibilityMode.BACKWARD, null);
+        putContracts("unavailable-app", VERSION1,
+                new CreateMessageContractsDto(List.of(createNew(unavailable, SCHEMA_JSON))));
+        for (String appName : List.of(MY_APP_NAME, "unavailable-app")) {
+            mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, appName, VERSION1, "prod")
+                            .header(AUTHORIZATION, basicAuth(WRITE, SECRET)))
+                    .andExpect(status().isCreated());
+        }
+
+        mockMvc.perform(get(API_CONTRACTS + "/version-status")
+                        .param("env", "prod")
+                        .header(AUTHORIZATION, basicAuth(READ, SECRET)))
+                .andExpect(status().isServiceUnavailable());
+    }
+
+    @Test
+    @SneakyThrows
     void putContractWithSchemaDoesNotAccessMessageTypeRegistry() {
         // given: a contract referencing a registry which is not available, but providing the schema in the upload
         MessageContractDto contract = new MessageContractDto("app", VERSION_2_0_0, ACTIV_ZONE_ENTERED_EVENT, VERSION_1_0_0,

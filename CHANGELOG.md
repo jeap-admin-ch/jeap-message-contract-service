@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [12.13.0] - 2026-10-12
 
 ### Changed
+- Version-status returns HTTP 200 only for a complete snapshot, including `[]` when no contracts are deployed. Registry failures, missing message types and invalid version data now return HTTP 503 instead of silently omitting entries. Governance retains its previous snapshot through its existing HTTP error handling; legitimately empty snapshots clear it automatically, without configuration changes.
 - Deployment registration always records the deployed application version, including versions without contracts and previously unknown applications, and returns HTTP 201. Previously, versions without contracts were ignored with HTTP 200, leaving obsolete contracts marked as deployed. No pipeline flag or additional request is required. Missing contract publication is treated as an empty contract set.
 - Before upgrading, verify that deployment versions match the versions used for contract publication. Applications with mismatched versions now disappear from deployed-contract, version-status and compatibility views. The service logs a warning when a deployed version has no contracts while other versions of the application do.
 
