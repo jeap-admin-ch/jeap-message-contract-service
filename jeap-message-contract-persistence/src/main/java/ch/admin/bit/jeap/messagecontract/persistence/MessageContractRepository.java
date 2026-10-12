@@ -40,14 +40,6 @@ public class MessageContractRepository {
         return jpaRepository.existsByAppNameAndAppVersionAndDeletedFalse(appName, appVersion);
     }
 
-    /**
-     * @return true if contracts have ever been uploaded for the application, deleted contracts included. Used to
-     * recognize an application this service knows, even if none of its versions has contracts anymore.
-     */
-    public boolean existsByAppName(String appName) {
-        return jpaRepository.existsByAppName(appName);
-    }
-
     public List<MessageContract> getContractsForAppVersionTransactionId(String appName, String appVersion, String transactionId) {
         return jpaRepository.findAllByAppNameAndAppVersionAndTransactionIdAndDeletedFalse(appName, appVersion, transactionId);
     }

@@ -5,7 +5,6 @@ import ch.admin.bit.jeap.messagecontract.persistence.MessageContractRepository;
 import ch.admin.bit.jeap.messagecontract.persistence.PersistenceConfiguration;
 import ch.admin.bit.jeap.messagecontract.persistence.model.Deployment;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContract;
-import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -34,9 +33,10 @@ class DeploymentServiceTest {
     }
 
     @Test
-    void saveNewDeploymentAppNameIsNotDefinedDeploymentNotSaved() {
+    void saveNewDeploymentAppWithoutContractsDeploymentSaved() {
         deploymentService.saveNewDeployment("unknown", "v1", "ABN");
-        assertThat(deploymentService.findLast10Deployments()).isEmpty();
+        assertThat(deploymentService.findLast10Deployments()).singleElement()
+                .satisfies(deployment -> assertThat(deployment.getAppName()).isEqualTo("unknown"));
     }
 
 
@@ -52,66 +52,22 @@ class DeploymentServiceTest {
     }
 
     @Test
-    void saveNewDeploymentAppKnownButVersionWithoutContractsNotDeclaredDeploymentNotSaved() {
+    void saveNewDeploymentVersionWithoutContractsReplacesPreviousDeployment() {
         messageContractRepository.saveContracts(List.of(
-                MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
-        ));
+                MessageContractTestFactory.createContract("app", "v1", "TestType1", null)));
+        deploymentService.saveNewDeployment("app", "v1", "PROD");
+        deploymentService.saveNewDeployment("app", "v1", "REF");
 
-        // without the declaration, a version without contracts must not become the deployed one
-        assertThat(deploymentService.saveNewDeployment("app", "v2", "ABN")).isNull();
-        assertThat(deploymentService.registerNewDeployment("app", "v2", "ABN", false).outcome())
-                .isEqualTo(DeploymentRegistration.Outcome.IGNORED);
-        assertThat(deploymentService.findLast10Deployments()).isEmpty();
-    }
+        Deployment deployment = deploymentService.saveNewDeployment("app", "v2", "PROD");
 
-    @Test
-    void registerNewDeploymentNoMessageContractsDeclaredDeploymentRegistered() {
-        messageContractRepository.saveContracts(List.of(
-                MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
-        ));
+        assertThat(deployment.getAppVersion()).isEqualTo("v2");
+        assertThat(messageContractRepository.findMessageContractInfosByEnvironment("PROD")).isEmpty();
+        assertThat(messageContractRepository.findMessageContractInfosByEnvironment("REF")).hasSize(1);
+        assertThat(messageContractRepository.getContractsForAppVersion("app", "v1")).hasSize(1);
+        assertThat(deploymentService.findLast10Deployments()).hasSize(3);
 
-        DeploymentRegistration registration = deploymentService.registerNewDeployment("app", "v2", "ABN", true);
-
-        assertThat(registration.outcome()).isEqualTo(DeploymentRegistration.Outcome.REGISTERED);
-        assertThat(registration.deployment()).isNotNull();
-        assertThat(registration.deployment().getAppVersion()).isEqualTo("v2");
-    }
-
-    @Test
-    void registerNewDeploymentNoMessageContractsDeclaredAppWithOnlyDeletedContractsDeploymentRegistered() {
-        messageContractRepository.saveContracts(List.of(
-                MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
-        ));
-        messageContractRepository.deleteContract("app", "v1", "TestType1", "1.0.0", "topic", MessageContractRole.CONSUMER);
-
-        DeploymentRegistration registration = deploymentService.registerNewDeployment("app", "v2", "ABN", true);
-
-        assertThat(registration.outcome()).isEqualTo(DeploymentRegistration.Outcome.REGISTERED);
-    }
-
-    @Test
-    void registerNewDeploymentNoMessageContractsDeclaredAppNameUnknownDeploymentIgnored() {
-        messageContractRepository.saveContracts(List.of(
-                MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
-        ));
-
-        DeploymentRegistration registration = deploymentService.registerNewDeployment("app-typo", "v1", "ABN", true);
-
-        assertThat(registration.outcome()).isEqualTo(DeploymentRegistration.Outcome.IGNORED);
-        assertThat(registration.deployment()).isNull();
-        assertThat(deploymentService.findLast10Deployments()).isEmpty();
-    }
-
-    @Test
-    void registerNewDeploymentNoMessageContractsDeclaredButContractsExistDeclarationIgnored() {
-        messageContractRepository.saveContracts(List.of(
-                MessageContractTestFactory.createContract("app", "v1", "TestType1", null)
-        ));
-
-        DeploymentRegistration registration = deploymentService.registerNewDeployment("app", "v1", "ABN", true);
-
-        assertThat(registration.outcome()).isEqualTo(DeploymentRegistration.Outcome.REGISTERED_DECLARATION_IGNORED);
-        assertThat(registration.deployment().getAppVersion()).isEqualTo("v1");
+        deploymentService.saveNewDeployment("app", "v1", "PROD");
+        assertThat(messageContractRepository.findMessageContractInfosByEnvironment("PROD")).hasSize(1);
     }
 
     @Test

@@ -278,19 +278,6 @@ class MessageContractRepositoryTest {
     }
 
     @Test
-    void existsByAppName() {
-        messageContractRepository.saveContracts(List.of(
-                createContract("app1", "v1", COMMIT_HASH, null, MessageContractRole.CONSUMER, null)));
-
-        assertThat(messageContractRepository.existsByAppName("app1")).isTrue();
-        assertThat(messageContractRepository.existsByAppName("app2")).isFalse();
-
-        // a deleted contract still identifies an application known to the service
-        messageContractRepository.deleteContract("app1", "v1", TEST_TYPE, VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER);
-        assertThat(messageContractRepository.existsByAppName("app1")).isTrue();
-    }
-
-    @Test
     void findMessageContractInfosByEnvironmentLatestDeploymentWithoutContracts() {
         // given: app1 removed its last contract in v2, app2 is unchanged
         MessageContract app1v1 = createContract("app1", "v1", null, null, MessageContractRole.CONSUMER, null);

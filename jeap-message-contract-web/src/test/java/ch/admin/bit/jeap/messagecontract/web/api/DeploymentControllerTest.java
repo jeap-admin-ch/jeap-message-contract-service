@@ -18,9 +18,7 @@ import java.util.Base64;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class DeploymentControllerTest extends ControllerTestBase {
@@ -76,9 +74,25 @@ class DeploymentControllerTest extends ControllerTestBase {
         mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, "appUnknown", APP_VERSION, "prod")
                         .header(AUTHORIZATION, basicAuthHeader)
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk()); // 200
+                .andExpect(status().isCreated()); // 201
 
-        assertThat(getDeploymentDtos()).isEmpty();
+        // The deployment is recorded even if this application has never published contracts
+        MvcResult result = mockMvc.perform(get(API_DEPLOYMENTS)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String responseBody = result.getResponse().getContentAsString();
+        List<DeploymentDto> dtos = jsonMapper.readValue(
+                responseBody,
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
+        );
+
+        assertThat(dtos).singleElement().satisfies(dto -> {
+            assertThat(dto.appName()).isEqualTo("appUnknown");
+            assertThat(dto.appVersion()).isEqualTo(APP_VERSION);
+            assertThat(dto.environment()).isEqualTo("PROD");
+        });
     }
 
     @Test
@@ -97,69 +111,20 @@ class DeploymentControllerTest extends ControllerTestBase {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isCreated()); // 201
 
-        assertThat(getDeploymentDtos()).singleElement()
-                .satisfies(dto -> assertThat(dto.appName()).isEqualTo(MY_APP_NAME));
-    }
+        // GET /api/deployments and assert the list contains one deployment
+        MvcResult result = mockMvc.perform(get(API_DEPLOYMENTS)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
 
-    @Test
-    void putDeploymentNoMessageContractsAppWithoutContractsDeploymentRegistered() throws Exception {
-        // the app is known to the service, but the deployed version has no contracts
-        messageContractRepository.save(createContract(
-                MY_APP_NAME, "previousAppVersion", "test", "test", MessageContractRole.CONSUMER));
-        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
+        String responseBody = result.getResponse().getContentAsString();
+        List<DeploymentDto> dtos = jsonMapper.readValue(
+                responseBody,
+                jsonMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
+        );
 
-        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, MY_APP_NAME, APP_VERSION, "prod")
-                        .queryParam("noMessageContracts", "true")
-                        .header(AUTHORIZATION, basicAuthHeader)
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isCreated()); // 201
-
-        assertThat(getDeploymentDtos())
-                .singleElement()
-                .satisfies(dto -> {
-                    assertThat(dto.appName()).isEqualTo(MY_APP_NAME);
-                    assertThat(dto.appVersion()).isEqualTo(APP_VERSION);
-                    assertThat(dto.environment()).isEqualTo("PROD");
-                });
-    }
-
-    @Test
-    void putDeploymentNoMessageContractsAppWithContractsDeploymentRegistered() throws Exception {
-        messageContractRepository.save(createContract(
-                MY_APP_NAME, APP_VERSION, "test", "test", MessageContractRole.CONSUMER));
-        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
-
-        // the declaration is ignored, as the contracts belong to the deployed app version
-        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, MY_APP_NAME, APP_VERSION, "prod")
-                        .queryParam("noMessageContracts", "true")
-                        .header(AUTHORIZATION, basicAuthHeader)
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isCreated()) // 201
-                .andExpect(content().string(containsString("declaration that it has no message contracts has been ignored")));
-
-        assertThat(getDeploymentDtos()).singleElement()
-                .satisfies(dto -> assertThat(dto.appVersion()).isEqualTo(APP_VERSION));
-    }
-
-    @Test
-    void putDeploymentNoMessageContractsAppNameUnknownDeploymentIgnored() throws Exception {
-        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
-
-        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, "appUnknown", APP_VERSION, "prod")
-                        .queryParam("noMessageContracts", "true")
-                        .header(AUTHORIZATION, basicAuthHeader)
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk()); // 200
-
-        assertThat(getDeploymentDtos()).isEmpty();
-    }
-
-    @Test
-    void putDeploymentNoMessageContractsUnauthorized() throws Exception {
-        mockMvc.perform(put("/api/deployments/test/test/abn")
-                        .queryParam("noMessageContracts", "true")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized()); // 401
+        assertThat(dtos).hasSize(1);
+        assertThat(dtos.getFirst().appName()).isEqualTo(MY_APP_NAME);
     }
 
     @Test
@@ -189,19 +154,19 @@ class DeploymentControllerTest extends ControllerTestBase {
                         .header(AUTHORIZATION, basicAuthHeader))
                 .andExpect(status().isOk()); // 200
 
-        assertThat(getDeploymentDtos()).isEmpty();
-    }
-
-    private List<DeploymentDto> getDeploymentDtos() throws Exception {
+        // GET /api/deployments and assert the list is empty
         MvcResult result = mockMvc.perform(get(API_DEPLOYMENTS)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andReturn();
 
-        return jsonMapper.readValue(
-                result.getResponse().getContentAsString(),
+        String responseBody = result.getResponse().getContentAsString();
+        List<DeploymentDto> dtos = jsonMapper.readValue(
+                responseBody,
                 jsonMapper.getTypeFactory().constructCollectionType(List.class, DeploymentDto.class)
         );
+
+        assertThat(dtos).isEmpty();
     }
 
     private MessageContract createContract(String appName, String appVersion, String commitHash, String branch, MessageContractRole role) {

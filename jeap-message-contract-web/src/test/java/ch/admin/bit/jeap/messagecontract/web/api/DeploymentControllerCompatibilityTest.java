@@ -163,7 +163,7 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         notifyAppDeployedOnEnv(TEST_CONSUMER_APP, "1.0", "prod");
 
         // when the consumer deploys a version without message contracts
-        notifyAppDeployedWithoutMessageContractsOnEnv(TEST_CONSUMER_APP, "2.0", "prod");
+        notifyAppDeployedOnEnv(TEST_CONSUMER_APP, "2.0", "prod");
 
         // then the producer is compatible again, as the consumer does not consume the message type anymore
         MvcResult mvcResult = doCompatibilityGetRequest(TEST_PRODUCER_APP, "2.0", "prod")
@@ -364,16 +364,6 @@ class DeploymentControllerCompatibilityTest extends ControllerTestBase {
         String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
 
         mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, appName, appVersion, environment)
-                        .header(AUTHORIZATION, basicAuthHeader))
-                .andExpect(status().isCreated()); // 201
-    }
-
-    @SneakyThrows
-    protected void notifyAppDeployedWithoutMessageContractsOnEnv(String appName, String appVersion, String environment) {
-        String basicAuthHeader = BASIC_PREFIX + Base64.getEncoder().encodeToString((WRITE_SECRET).getBytes());
-
-        mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, appName, appVersion, environment)
-                        .queryParam("noMessageContracts", "true")
                         .header(AUTHORIZATION, basicAuthHeader))
                 .andExpect(status().isCreated()); // 201
     }

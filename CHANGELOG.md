@@ -7,10 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > - The Spring Boot 4 upgrade process happens on the `master` branch, with the goal of releasing Spring Boot 4 compatible versions of all jeap components in a single major release.
 
-## [12.11.0] - 2026-10-09
+## [12.11.0] - 2026-10-12
 
-### Added
-- The deployment registration `PUT /api/deployments/{appName}/{appVersion}/{environment}` accepts the optional request parameter `noMessageContracts`. With `noMessageContracts=true` the deployment of an application version without message contracts is registered instead of being ignored, so that the contracts of the previously deployed version are no longer reported as deployed after an application has removed its last producer or consumer. The declaration requires an application known to the service and is ignored if the application version does have contracts, in which case the deployment is registered with them and the response body says so. Callers setting the parameter should treat a response other than 201 as a failed declaration.
+### Changed
+- Deployment registration always records the deployed application version, including versions without contracts and previously unknown applications, and returns HTTP 201. Previously, versions without contracts were ignored with HTTP 200, leaving the previous version's obsolete contracts marked as deployed. No pipeline flag or additional request is required. Missing contract publication is treated as an empty contract set.
 
 ## [12.10.1] - 2026-10-08
 
