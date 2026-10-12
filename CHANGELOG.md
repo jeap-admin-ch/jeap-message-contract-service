@@ -7,11 +7,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > - The Spring Boot 4 upgrade process happens on the `master` branch, with the goal of releasing Spring Boot 4 compatible versions of all jeap components in a single major release.
 
-## [12.11.0] - 2026-10-12
+## [12.13.0] - 2026-10-12
 
 ### Changed
-- Deployment registration always records the deployed application version, including versions without contracts and previously unknown applications, and returns HTTP 201. Previously, versions without contracts were ignored with HTTP 200, leaving the previous version's obsolete contracts marked as deployed. No pipeline flag or additional request is required. Missing contract publication is treated as an empty contract set.
-- Action required for service instances: the previous behaviour masked applications whose registered deployment version never matched the version their contracts were uploaded for. Such an application now drops out of the deployed contracts, of `version-status` and of the compatibility check. Before upgrading, check the latest deployment per application and environment for versions without contracts, and fix those build pipelines. The service logs a warning when a deployed application version has no contracts while other versions of the same application do.
+- Deployment registration always records the deployed application version, including versions without contracts and previously unknown applications, and returns HTTP 201. Previously, versions without contracts were ignored with HTTP 200, leaving obsolete contracts marked as deployed. No pipeline flag or additional request is required. Missing contract publication is treated as an empty contract set.
+- Before upgrading, verify that deployment versions match the versions used for contract publication. Applications with mismatched versions now disappear from deployed-contract, version-status and compatibility views. The service logs a warning when a deployed version has no contracts while other versions of the application do.
+
+## [12.12.0] - 2026-10-12
+
+### Dependencies
+- **ch.admin.bit.jeap:jeap-spring-boot-parent**: 41.18.1 → 41.19.0 (minor)
+
+## [12.11.0] - 2026-10-11
+
+### Dependencies
+- **ch.admin.bit.jeap:jeap-spring-boot-parent**: 41.17.1 → 41.18.1 (minor)
 
 ## [12.10.1] - 2026-10-08
 
