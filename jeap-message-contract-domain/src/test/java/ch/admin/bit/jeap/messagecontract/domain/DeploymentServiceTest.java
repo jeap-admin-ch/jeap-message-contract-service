@@ -53,7 +53,7 @@ class DeploymentServiceTest {
 
     @Test
     void saveNewDeploymentVersionWithoutContractsReplacesPreviousDeployment() {
-        // the deployed version is resolved by created_at, so this test relies on strictly increasing timestamps;
+        // the deployed version is resolved by created_at, so this test relies on strictly increasing timestamps
         // MessageContractRepositoryTest pins the same semantics with explicit timestamps
         messageContractRepository.saveContracts(List.of(
                 MessageContractTestFactory.createContract("app", "v1", "TestType1", null)));
