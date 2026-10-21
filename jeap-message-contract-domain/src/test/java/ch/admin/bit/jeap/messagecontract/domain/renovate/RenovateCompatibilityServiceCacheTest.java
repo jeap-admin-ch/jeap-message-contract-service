@@ -34,12 +34,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -287,20 +287,18 @@ class RenovateCompatibilityServiceCacheTest {
      * Waits until the thread is parked in the cache waiting for the in-flight load of the same key, so that the test
      * proves the waiting instead of a lucky ordering of the threads.
      */
-    private static void awaitBlockedInCache(AtomicReference<Thread> threadReference)
-            throws InterruptedException, TimeoutException {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    private static void awaitBlockedInCache(AtomicReference<Thread> threadReference) {
         EnumSet<Thread.State> waitingStates =
                 EnumSet.of(Thread.State.BLOCKED, Thread.State.WAITING, Thread.State.TIMED_WAITING);
-        while (System.nanoTime() < deadline) {
-            Thread thread = threadReference.get();
-            if (thread != null && waitingStates.contains(thread.getState()) && Arrays.stream(thread.getStackTrace())
-                    .anyMatch(frame -> frame.getClassName().startsWith("com.github.benmanes.caffeine.cache."))) {
-                return;
-            }
-            Thread.sleep(5);
-        }
-        throw new TimeoutException("The second request did not wait for the in-flight load");
+        await("the second request waits for the in-flight load")
+                .atMost(Duration.ofSeconds(10))
+                .pollInterval(Duration.ofMillis(5))
+                .until(() -> {
+                    Thread thread = threadReference.get();
+                    return thread != null && waitingStates.contains(thread.getState())
+                            && Arrays.stream(thread.getStackTrace()).anyMatch(frame ->
+                            frame.getClassName().startsWith("com.github.benmanes.caffeine.cache."));
+                });
     }
 
     MessageTypeRepository givenDeployedContractsAndRegistry(DeployedMessageContract... deployedContracts) {
