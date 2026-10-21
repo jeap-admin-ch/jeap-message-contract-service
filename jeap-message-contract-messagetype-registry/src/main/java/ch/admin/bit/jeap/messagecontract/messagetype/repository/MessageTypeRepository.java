@@ -106,6 +106,13 @@ public class MessageTypeRepository implements Closeable {
      */
     @Setter
     protected Runnable eagerCacheRefresh;
+    /**
+     * Timeout in seconds of the network operations of the clone and fetches from {@code gitUri}, see
+     * {@link MessageTypeRepositoryProperties#getGitTimeout()}. Zero means no timeout.
+     */
+    @Setter
+    protected int gitTimeoutSeconds = MessageTypeRepositoryProperties.toGitTimeoutSeconds(
+            MessageTypeRepositoryProperties.DEFAULT_GIT_TIMEOUT);
     File gitRepoPath;
     private Git git;
 
@@ -365,6 +372,7 @@ public class MessageTypeRepository implements Closeable {
             long fetchStart = System.nanoTime();
             git.fetch()
                     .setCredentialsProvider(this.credentialsProvider)
+                    .setTimeout(gitTimeoutSeconds)
                     .setDepth(1)
                     .setRefSpecs(new RefSpec(commitReference))
                     .call();
@@ -379,6 +387,7 @@ public class MessageTypeRepository implements Closeable {
             long fetchStart = System.nanoTime();
             git.fetch()
                     .setCredentialsProvider(this.credentialsProvider)
+                    .setTimeout(gitTimeoutSeconds)
                     .setDepth(1)
                     .setRefSpecs(new RefSpec("+refs/heads/" + branch + ":refs/remotes/origin/" + branch))
                     .call();
@@ -430,6 +439,7 @@ public class MessageTypeRepository implements Closeable {
                         .setURI(gitUri)
                         .setDirectory(tempDir)
                         .setCredentialsProvider(this.credentialsProvider)
+                        .setTimeout(gitTimeoutSeconds)
                         .setDepth(1)
                         .setNoTags()
                         .call();

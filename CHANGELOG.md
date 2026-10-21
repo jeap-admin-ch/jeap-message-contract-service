@@ -15,6 +15,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 - The deployed contracts per message type and environment, the compared schemas and the message type registry data used to answer Renovate datasource requests are reused for `jeap.messagecontract.renovate.cache-ttl` (default 5 minutes), so a burst of Renovate requests no longer repeats the same database queries and registry reads. Within this time, new deployments and newly published message type versions may not yet be taken into account. Set the property to `0s` to disable the reuse.
+- Message type registry clone and fetch operations time out after `messages.git-timeout` (default 3 minutes), so a hanging registry no longer blocks Renovate and version-status requests indefinitely. The timeout applies to each connect and network read, not to the total duration of an operation. A registry timeout is reported like any other registry outage with HTTP 503.
 - Version-status entries contain a new `status` field (`UP_TO_DATE`, `OUTDATED`, `UNKNOWN`); `upToDate` is `true` only for `UP_TO_DATE`. HTTP 503 is now returned only if a message type registry cannot be read as a whole, and is logged as a warning instead of an error since consumers retain their previous snapshot and retry. Deploy jeap-governance-service 9.12.1 or later before this version, as older governance versions cannot store contracts without a latest version.
 
 ## [12.15.0] - 2026-10-18

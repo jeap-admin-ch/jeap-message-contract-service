@@ -44,6 +44,9 @@ public class MessageTypeRepositoryFactory {
                 messageTypeRepository = new GitHubMessageTypeRepository(gitUri, knownRepository.get().getParameters(), meterRegistry);
             }
         }
+        if (properties != null) {
+            messageTypeRepository.setGitTimeoutSeconds(properties.gitTimeoutSeconds());
+        }
         boolean cacheHit = false;
         if (referenceCache != null) {
             Optional<File> cacheRepoDir = referenceCache.getCacheRepoDir(gitUri);

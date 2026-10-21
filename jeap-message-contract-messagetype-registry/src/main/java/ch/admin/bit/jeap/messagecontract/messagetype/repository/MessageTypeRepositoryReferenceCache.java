@@ -249,6 +249,7 @@ public class MessageTypeRepositoryReferenceCache {
                 .setBare(true)
                 .setMirror(true)
                 .setCredentialsProvider(credentials)
+                .setTimeout(repositoryProperties.gitTimeoutSeconds())
                 .call()) {
             // resources released; cache directory is now populated
         }
@@ -259,6 +260,7 @@ public class MessageTypeRepositoryReferenceCache {
             git.fetch()
                     .setRemote("origin")
                     .setCredentialsProvider(credentials)
+                    .setTimeout(repositoryProperties.gitTimeoutSeconds())
                     .setRemoveDeletedRefs(true)
                     .setTagOpt(TagOpt.FETCH_TAGS)
                     .call();
