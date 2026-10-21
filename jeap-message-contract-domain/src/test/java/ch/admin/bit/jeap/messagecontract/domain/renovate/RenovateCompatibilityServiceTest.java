@@ -3,6 +3,7 @@ package ch.admin.bit.jeap.messagecontract.domain.renovate;
 import ch.admin.bit.jeap.messagecontract.domain.DeploymentService;
 import ch.admin.bit.jeap.messagecontract.domain.DomainConfiguration;
 import ch.admin.bit.jeap.messagecontract.domain.MessageContractService;
+import ch.admin.bit.jeap.messagecontract.domain.PostgresTestContainerBase;
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepositoryConfiguration;
 import ch.admin.bit.jeap.messagecontract.persistence.PersistenceConfiguration;
 import ch.admin.bit.jeap.messagecontract.persistence.model.CompatibilityMode;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 
@@ -22,11 +24,12 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ContextConfiguration(classes = {PersistenceConfiguration.class, DomainConfiguration.class,
         MessageTypeRepositoryConfiguration.class})
 // Each test deploys different contracts for the same message type within the shared application context
 @TestPropertySource(properties = "jeap.messagecontract.renovate.cache-ttl=0s")
-class RenovateCompatibilityServiceTest {
+class RenovateCompatibilityServiceTest extends PostgresTestContainerBase {
 
     private static final String MESSAGE_TYPE = "ActivZoneEnteredEvent";
     private static final String PACKAGE_NAME = "ch.admin.bit.jeap.messagetype.activ:activ-zone-entered-event";

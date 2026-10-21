@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -21,9 +22,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ContextConfiguration(classes = {PersistenceConfiguration.class, DomainConfiguration.class})
 @ExtendWith(MockitoExtension.class)
-class MessageContractServiceTest {
+class MessageContractServiceTest extends PostgresTestContainerBase {
 
     private static final String TEST_TYPE1 = "TestType1";
     private static final String TEST_TYPE2 = "TestType2";

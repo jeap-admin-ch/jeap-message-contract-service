@@ -8,6 +8,7 @@ import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContract;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -16,8 +17,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ContextConfiguration(classes = {PersistenceConfiguration.class, DomainConfiguration.class})
-class DeploymentServiceTest {
+class DeploymentServiceTest extends PostgresTestContainerBase {
 
     private final DeploymentService deploymentService;
     private final MessageContractRepository messageContractRepository;

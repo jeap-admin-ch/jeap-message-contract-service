@@ -3,6 +3,7 @@ package ch.admin.bit.jeap.messagecontract.domain.renovate;
 import ch.admin.bit.jeap.messagecontract.domain.DeploymentService;
 import ch.admin.bit.jeap.messagecontract.domain.DomainConfiguration;
 import ch.admin.bit.jeap.messagecontract.domain.MessageContractService;
+import ch.admin.bit.jeap.messagecontract.domain.PostgresTestContainerBase;
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepositoryConfiguration;
 import ch.admin.bit.jeap.messagecontract.persistence.MessageContractRepository;
 import ch.admin.bit.jeap.messagecontract.persistence.PersistenceConfiguration;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
@@ -30,9 +32,10 @@ import static org.mockito.Mockito.verify;
  * queries the deployed contracts only once.
  */
 @DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ContextConfiguration(classes = {PersistenceConfiguration.class, DomainConfiguration.class,
         MessageTypeRepositoryConfiguration.class})
-class RenovateCompatibilityServiceCacheIntegrationTest {
+class RenovateCompatibilityServiceCacheIntegrationTest extends PostgresTestContainerBase {
 
     private static final String PACKAGE_NAME = "ch.admin.bit.jeap.messagetype.activ:activ-zone-entered-event";
     private static TestRegistryRepo testRegistry;

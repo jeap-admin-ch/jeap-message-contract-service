@@ -12,7 +12,7 @@ import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
 
 @SpringBootTest
 @Slf4j
-class ContextTest {
+class ContextTest extends PostgresTestContainerBase {
 
     private final ContractController contractController;
     private final ApplicationContext applicationContext;

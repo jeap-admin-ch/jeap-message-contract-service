@@ -4,6 +4,7 @@ import ch.admin.bit.jeap.messagecontract.persistence.model.Deployment;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.test.context.ContextConfiguration;
 
@@ -14,11 +15,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:db;MODE=PostgreSQL"
-})
+@DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ContextConfiguration(classes = PersistenceConfiguration.class)
-class DeploymentRepositoryTest {
+class DeploymentRepositoryTest extends PostgresTestContainerBase {
 
     private final DeploymentRepository deploymentRepository;
     private final TestEntityManager testEntityManager;
@@ -56,7 +56,8 @@ class DeploymentRepositoryTest {
         createAndSaveDeployment("app1", "v1");
         createAndSaveDeployment("app2", "v3");
         testEntityManager.getEntityManager()
-                .createNativeQuery("UPDATE deployment d SET d.created_at = d.created_at + interval '1' day WHERE d.id='%s'".formatted(newestDeploymentId))
+                .createNativeQuery("UPDATE deployment SET created_at = created_at + interval '1 day' WHERE id = :id")
+                .setParameter("id", newestDeploymentId)
                 .executeUpdate();
         testEntityManager.flush();
 

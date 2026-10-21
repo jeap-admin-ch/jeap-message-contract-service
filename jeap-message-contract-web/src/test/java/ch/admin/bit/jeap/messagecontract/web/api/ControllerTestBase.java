@@ -7,7 +7,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
-public class ControllerTestBase {
+public class ControllerTestBase extends PostgresTestContainerBase {
 
     protected final MockMvc mockMvc;
 

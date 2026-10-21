@@ -3,6 +3,7 @@ package ch.admin.bit.jeap.messagecontract.domain.compatibility;
 import ch.admin.bit.jeap.messagecontract.domain.DeploymentService;
 import ch.admin.bit.jeap.messagecontract.domain.DomainConfiguration;
 import ch.admin.bit.jeap.messagecontract.domain.MessageContractService;
+import ch.admin.bit.jeap.messagecontract.domain.PostgresTestContainerBase;
 import ch.admin.bit.jeap.messagecontract.domain.compatibility.CompatibilityCheckResult.ConsumerProducerInteraction;
 import ch.admin.bit.jeap.messagecontract.domain.compatibility.CompatibilityCheckResult.InteractionRole;
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepositoryConfiguration;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.ContextConfiguration;
 
 import java.util.List;
@@ -25,8 +27,9 @@ import static ch.admin.bit.jeap.messagecontract.persistence.model.MessageContrac
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ContextConfiguration(classes = {PersistenceConfiguration.class, DomainConfiguration.class, MessageTypeRepositoryConfiguration.class})
-class CompatibilityServiceTest {
+class CompatibilityServiceTest extends PostgresTestContainerBase {
 
     private static final String TEST_CONSUMER = "test-consumer";
     private static final String TEST_PRODUCER = "test-producer";

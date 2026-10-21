@@ -7,6 +7,8 @@ import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 
 import java.time.ZonedDateTime;
@@ -16,8 +18,9 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ContextConfiguration(classes = PersistenceConfiguration.class)
-class MessageContractRepositoryTest {
+class MessageContractRepositoryTest extends PostgresTestContainerBase {
 
     private static final String TEST_TYPE = "TestType";
     private static final String COMMIT_HASH = "commitHash";
@@ -32,14 +35,17 @@ class MessageContractRepositoryTest {
     private final MessageContractRepository messageContractRepository;
     private final JpaMessageContractRepository jpaMessageContractRepository;
     private final DeploymentRepository deploymentRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @Autowired
     MessageContractRepositoryTest(MessageContractRepository messageContractRepository,
                                    JpaMessageContractRepository jpaMessageContractRepository,
-                                   DeploymentRepository deploymentRepository) {
+                                   DeploymentRepository deploymentRepository,
+                                   JdbcTemplate jdbcTemplate) {
         this.messageContractRepository = messageContractRepository;
         this.jpaMessageContractRepository = jpaMessageContractRepository;
         this.deploymentRepository = deploymentRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Test
@@ -387,6 +393,19 @@ class MessageContractRepositoryTest {
 
         assertThat(messageContractRepository.findCurrentlyDeployedContracts("PROD", TEST_TYPE.toLowerCase()))
                 .isEmpty();
+    }
+
+    @Test
+    void createsIndexesForTheCurrentlyDeployedContractsLookup() {
+        List<String> indexDefinitions = jdbcTemplate.queryForList(
+                "select indexdef from pg_indexes where schemaname = current_schema()", String.class);
+
+        assertThat(indexDefinitions)
+                .anyMatch(definition -> definition.startsWith("CREATE INDEX message_contract_lower_message_type_not_deleted")
+                        && definition.contains("(lower((message_type)::text))")
+                        && definition.contains("WHERE (deleted = false)"))
+                .anyMatch(definition -> definition.startsWith("CREATE INDEX deployment_app_name_environment_created_at")
+                        && definition.contains("(app_name, environment, created_at DESC)"));
     }
 
     @Test
