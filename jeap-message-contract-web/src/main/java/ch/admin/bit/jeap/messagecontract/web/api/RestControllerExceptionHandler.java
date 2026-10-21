@@ -20,7 +20,8 @@ public class RestControllerExceptionHandler extends ResponseEntityExceptionHandl
     @ExceptionHandler(MessageContractVersionStatusUnavailableException.class)
     @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
     public String handleIncompleteVersionStatus(MessageContractVersionStatusUnavailableException ex) {
-        log.error("Message contract version status is incomplete: {}", ex.getMessage(), ex);
+        // The consumer retains its previous snapshot and retries, so this is an expected degradation, not an error.
+        log.warn("Message contract version status is incomplete: {}", ex.getMessage(), ex);
         return "Complete message contract version status is unavailable; retain the previous snapshot and retry later.";
     }
 

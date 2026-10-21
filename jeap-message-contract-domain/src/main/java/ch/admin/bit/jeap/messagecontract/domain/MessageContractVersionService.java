@@ -6,6 +6,7 @@ import ch.admin.bit.jeap.messagecontract.persistence.MessageContractInfo;
 import ch.admin.bit.jeap.messagecontract.persistence.MessageContractRepository;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class MessageContractVersionService {
 
     private final MessageContractRepository contractRepository;
@@ -44,10 +46,16 @@ public class MessageContractVersionService {
     private List<MessageContractVersionStatus> getVersionStatus(String registryUrl,
                                                                  List<MessageContractInfo> contracts) {
         if (registryUrl.isBlank()) {
-            throw new MessageContractVersionStatusUnavailableException(
-                    "Cannot resolve complete message version status: deployed contracts have no registry URL");
+            // A contract without registry URL is a permanent data defect of that contract, not an outage. Rejecting
+            // the whole snapshot would block the version status of all other applications until it is fixed.
+            return contracts.stream()
+                    .map(contract -> unknown(contract, "<none>", "the contract has no message type registry URL"))
+                    .toList();
         }
 
+        // A failure to read the registry as a whole is typically transient and affects every contract of the
+        // registry. Returning UNKNOWN for all of them would replace the consumer's last good snapshot with a
+        // misleading one, so the request is rejected and the consumer retains its previous data.
         Map<String, List<String>> versionsByMessageType;
         try (MessageTypeRepository repository = repositoryFactory.cloneRepository(registryUrl)) {
             versionsByMessageType = repository.getMessageTypeVersionsFromDefaultBranch(
@@ -58,24 +66,38 @@ public class MessageContractVersionService {
         }
 
         return contracts.stream()
-                .map(contract -> toVersionStatusOrThrow(contract, versionsByMessageType.get(contract.getMessageType())))
+                .map(contract -> toVersionStatusOrUnknown(contract, registryUrl,
+                        versionsByMessageType.get(contract.getMessageType())))
                 .toList();
     }
 
-    private static MessageContractVersionStatus toVersionStatusOrThrow(MessageContractInfo contract,
-                                                                        List<String> versions) {
+    private static MessageContractVersionStatus toVersionStatusOrUnknown(MessageContractInfo contract,
+                                                                          String registryUrl,
+                                                                          List<String> versions) {
         try {
             return toVersionStatus(contract, versions);
         } catch (IllegalArgumentException ex) {
-            throw new MessageContractVersionStatusUnavailableException(
-                    "Cannot resolve complete message version status for %s:%s message type %s"
-                            .formatted(contract.getAppName(), contract.getAppVersion(), contract.getMessageType()), ex);
+            return unknown(contract, registryUrl, ex.getMessage());
         }
+    }
+
+    private static MessageContractVersionStatus unknown(MessageContractInfo contract, String registryUrl,
+                                                        String reason) {
+        log.warn("Latest message version of {}:{} message type {} is UNKNOWN (registry {}): {}",
+                contract.getAppName(), contract.getAppVersion(), contract.getMessageType(), registryUrl, reason);
+        return MessageContractVersionStatus.unknown(
+                contract.getAppName(),
+                contract.getAppVersion(),
+                contract.getMessageType(),
+                contract.getMessageTypeVersion(),
+                contract.getTopic(),
+                MessageContractRole.valueOf(contract.getRole()));
     }
 
     private static MessageContractVersionStatus toVersionStatus(MessageContractInfo contract, List<String> versions) {
         if (versions == null || versions.isEmpty()) {
-            throw new IllegalArgumentException("No versions found for message type " + contract.getMessageType());
+            throw new IllegalArgumentException("No versions found for message type " + contract.getMessageType()
+                    + " on the default branch of the registry");
         }
         String latestVersion = versions.stream()
                 .map(SemanticVersion::parse)
@@ -84,7 +106,7 @@ public class MessageContractVersionService {
                 .value();
         SemanticVersion.parse(contract.getMessageTypeVersion());
 
-        return new MessageContractVersionStatus(
+        return MessageContractVersionStatus.resolved(
                 contract.getAppName(),
                 contract.getAppVersion(),
                 contract.getMessageType(),

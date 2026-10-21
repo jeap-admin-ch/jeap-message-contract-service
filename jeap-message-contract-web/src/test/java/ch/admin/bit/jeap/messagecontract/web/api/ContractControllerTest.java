@@ -447,7 +447,45 @@ class ContractControllerTest extends ControllerTestBase {
                 .andExpect(jsonPath("$[0].appName").value(MY_APP_NAME))
                 .andExpect(jsonPath("$[0].usedVersion").value(VERSION_1_0_0))
                 .andExpect(jsonPath("$[0].latestVersion").value(VERSION_2_0_0))
-                .andExpect(jsonPath("$[0].upToDate").value(false));
+                .andExpect(jsonPath("$[0].upToDate").value(false))
+                .andExpect(jsonPath("$[0].status").value("OUTDATED"));
+    }
+
+    @Test
+    @SneakyThrows
+    void getVersionStatusReturnsUnknownForUnresolvableContractAndStatusesForAllOthers() {
+        MessageContractDto resolvable = new MessageContractDto(MY_APP_NAME, VERSION1, ACTIV_ZONE_ENTERED_EVENT,
+                VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER, repoUrl, null, MASTER,
+                CompatibilityMode.BACKWARD, null);
+        putContracts(MY_APP_NAME, VERSION1, new CreateMessageContractsDto(List.of(createNew(resolvable))));
+        // The message type is not part of the registry; the schema is uploaded, so the upload does not need it
+        MessageContractDto unresolvable = new MessageContractDto("unresolvable-app", VERSION1, "SharedUnknownEvent",
+                VERSION_1_0_0, TOPIC, MessageContractRole.CONSUMER, repoUrl, null, MASTER,
+                CompatibilityMode.BACKWARD, null);
+        putContracts("unresolvable-app", VERSION1,
+                new CreateMessageContractsDto(List.of(createNew(unresolvable, SCHEMA_JSON.replace(ACTIV_ZONE_ENTERED_EVENT, "SharedUnknownEvent")))));
+        for (String appName : List.of(MY_APP_NAME, "unresolvable-app")) {
+            mockMvc.perform(put(API_DEPLOYMENTS_APP_ENV, appName, VERSION1, "prod")
+                            .header(AUTHORIZATION, basicAuth(WRITE, SECRET)))
+                    .andExpect(status().isCreated());
+        }
+
+        mockMvc.perform(get(API_CONTRACTS + "/version-status")
+                        .param("env", "prod")
+                        .header(AUTHORIZATION, basicAuth(READ, SECRET))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].appName").value(MY_APP_NAME))
+                .andExpect(jsonPath("$[0].latestVersion").value(VERSION_2_0_0))
+                .andExpect(jsonPath("$[0].upToDate").value(false))
+                .andExpect(jsonPath("$[0].status").value("OUTDATED"))
+                .andExpect(jsonPath("$[1].appName").value("unresolvable-app"))
+                .andExpect(jsonPath("$[1].messageType").value("SharedUnknownEvent"))
+                .andExpect(jsonPath("$[1].usedVersion").value(VERSION_1_0_0))
+                .andExpect(jsonPath("$[1].latestVersion").doesNotExist())
+                .andExpect(jsonPath("$[1].upToDate").value(false))
+                .andExpect(jsonPath("$[1].status").value("UNKNOWN"));
     }
 
     @Test

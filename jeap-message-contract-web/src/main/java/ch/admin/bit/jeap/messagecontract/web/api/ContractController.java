@@ -56,8 +56,8 @@ public class ContractController {
     @GetMapping(path = "/version-status", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "List deployed message contracts with their latest available message version",
             responses = {
-                    @ApiResponse(responseCode = "200", description = "Complete version status snapshot; empty if no contracts are deployed"),
-                    @ApiResponse(responseCode = "503", description = "Complete snapshot unavailable; retain previous data and retry later")
+                    @ApiResponse(responseCode = "200", description = "Version status of every deployed contract; empty if no contracts are deployed. Contracts whose latest version cannot be determined have status UNKNOWN"),
+                    @ApiResponse(responseCode = "503", description = "A message type registry is unavailable; retain previous data and retry later")
             })
     public List<MessageContractVersionStatusDto> getVersionStatus(@NotBlank @RequestParam(name = "env") String environment) {
         return messageContractVersionService.getVersionStatus(environment).stream()
