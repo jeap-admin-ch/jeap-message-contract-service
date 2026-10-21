@@ -7,6 +7,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > - The Spring Boot 4 upgrade process happens on the `master` branch, with the goal of releasing Spring Boot 4 compatible versions of all jeap components in a single major release.
 
+## [12.15.1] - 2026-10-21
+
+### Fixed
+- Renovate datasource requests no longer overload the database when Renovate queries many message types at once. New indexes support the lookup of the currently deployed contracts of a message type, and the lookup no longer loads the stored avro schemas of all deployed contracts. Schemas are loaded only for the contracts actually compared, and only if a newer candidate version exists.
+- Version-status no longer rejects the whole snapshot with HTTP 503 when a single contract cannot be resolved. Contracts whose latest version cannot be determined (message type missing from the registry, no registry URL, invalid semantic version) are returned with `status: UNKNOWN` and `latestVersion: null`, and a warning naming app, version, message type, registry and reason is logged. All other contracts are still resolved.
+
+### Changed
+- The deployed contracts per message type and environment, the compared schemas and the message type registry data used to answer Renovate datasource requests are reused for `jeap.messagecontract.renovate.cache-ttl` (default 5 minutes), so a burst of Renovate requests no longer repeats the same database queries and registry reads. Within this time, new deployments and newly published message type versions may not yet be taken into account. Set the property to `0s` to disable the reuse.
+- Version-status entries contain a new `status` field (`UP_TO_DATE`, `OUTDATED`, `UNKNOWN`); `upToDate` is `true` only for `UP_TO_DATE`. HTTP 503 is now returned only if a message type registry cannot be read as a whole, and is logged as a warning instead of an error since consumers retain their previous snapshot and retry. Deploy jeap-governance-service 9.12.1 or later before this version, as older governance versions cannot store contracts without a latest version.
+
 ## [12.15.0] - 2026-10-18
 
 ### Dependencies
