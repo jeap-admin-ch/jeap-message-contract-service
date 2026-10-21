@@ -14,7 +14,7 @@ public class RenovateProperties {
      * datasource requests are reused. Renovate queries many message types at once for many repositories, and
      * without reuse each request queries the database and reads the registry again. Within this time, newly
      * deployed contracts and newly published message type versions may not yet be taken into account. A zero
-     * duration disables the reuse.
+     * or negative duration disables the reuse.
      */
     private Duration cacheTtl = Duration.ofMinutes(5);
 }

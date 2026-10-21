@@ -2,20 +2,18 @@ package ch.admin.bit.jeap.messagecontract.domain.renovate;
 
 import ch.admin.bit.jeap.messagecontract.domain.SemanticVersion;
 import ch.admin.bit.jeap.messagecontract.domain.compatibility.SchemaCompatibilityService;
-import ch.admin.bit.jeap.messagecontract.domain.schema.MessageSchemaService;
+import ch.admin.bit.jeap.messagecontract.domain.renovate.RenovateLookups.CandidateSchemaKey;
+import ch.admin.bit.jeap.messagecontract.domain.renovate.RenovateLookups.DeployedContractsKey;
+import ch.admin.bit.jeap.messagecontract.domain.renovate.RenovateLookups.SnapshotKey;
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepository;
-import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepositoryFactory;
 import ch.admin.bit.jeap.messagecontract.messagetype.repository.MessageTypeRepoException;
 import ch.admin.bit.jeap.messagecontract.persistence.DeployedMessageContract;
-import ch.admin.bit.jeap.messagecontract.persistence.MessageContractRepository;
 import ch.admin.bit.jeap.messagecontract.persistence.MessageContractSchema;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContract;
 import ch.admin.bit.jeap.messagecontract.persistence.model.MessageContractRole;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.time.Clock;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -23,55 +21,25 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * Answers Renovate datasource requests with the newer message type versions that are compatible with the currently
  * deployed contracts.
  * <p>
- * Renovate queries many message types for many repositories at once. The deployed contracts of a message type and
- * environment, the schemas of the compared contracts and the message type registry data are therefore reused for
- * {@link RenovateProperties#getCacheTtl()}, so that such a burst neither repeats the same database queries nor reads
- * the registry again for every request.
+ * The deployed contracts, their schemas and the message type registry data are loaded through {@link RenovateLookups},
+ * which reuses them for {@link RenovateProperties#getCacheTtl()}.
  */
 @Component
 @Slf4j
 public class RenovateCompatibilityService {
 
-    private final MessageContractRepository contractRepository;
-    private final MessageTypeRepositoryFactory repositoryFactory;
-    private final MessageSchemaService schemaService;
+    private final RenovateLookups lookups;
     private final SchemaCompatibilityService schemaCompatibilityService;
-    private final ExpiringCache<DeployedContractsKey, List<DeployedMessageContract>> deployedContractsCache;
-    private final ExpiringCache<Set<UUID>, Map<UUID, MessageContractSchema>> contractSchemasCache;
-    private final ExpiringCache<SnapshotKey, MessageTypeRepository.MessageTypeSnapshot> snapshotCache;
-    private final ExpiringCache<CandidateSchemaKey, String> candidateSchemaCache;
 
-    @Autowired
-    public RenovateCompatibilityService(MessageContractRepository contractRepository,
-                                        MessageTypeRepositoryFactory repositoryFactory,
-                                        MessageSchemaService schemaService,
-                                        SchemaCompatibilityService schemaCompatibilityService,
-                                        RenovateProperties properties) {
-        this(contractRepository, repositoryFactory, schemaService, schemaCompatibilityService, properties,
-                Clock.systemUTC());
-    }
-
-    RenovateCompatibilityService(MessageContractRepository contractRepository,
-                                 MessageTypeRepositoryFactory repositoryFactory,
-                                 MessageSchemaService schemaService,
-                                 SchemaCompatibilityService schemaCompatibilityService,
-                                 RenovateProperties properties,
-                                 Clock clock) {
-        this.contractRepository = contractRepository;
-        this.repositoryFactory = repositoryFactory;
-        this.schemaService = schemaService;
+    RenovateCompatibilityService(RenovateLookups lookups, SchemaCompatibilityService schemaCompatibilityService) {
+        this.lookups = lookups;
         this.schemaCompatibilityService = schemaCompatibilityService;
-        this.deployedContractsCache = new ExpiringCache<>(properties.getCacheTtl(), clock);
-        this.contractSchemasCache = new ExpiringCache<>(properties.getCacheTtl(), clock);
-        this.snapshotCache = new ExpiringCache<>(properties.getCacheTtl(), clock);
-        this.candidateSchemaCache = new ExpiringCache<>(properties.getCacheTtl(), clock);
     }
 
     public List<RenovateRelease> findGloballyCompatibleReleases(String packageName, String currentValue,
@@ -92,10 +60,8 @@ public class RenovateCompatibilityService {
         validateRequest(appName, environment);
         String normalizedEnvironment = environment.toUpperCase(Locale.ROOT);
         String normalizedMessageType = coordinate.normalizedMessageType();
-        List<DeployedMessageContract> prodContracts = deployedContractsCache.get(
-                new DeployedContractsKey(normalizedEnvironment, normalizedMessageType),
-                () -> List.copyOf(contractRepository.findCurrentlyDeployedContracts(
-                        normalizedEnvironment, normalizedMessageType)));
+        List<DeployedMessageContract> prodContracts = lookups.deployedContracts(
+                new DeployedContractsKey(normalizedEnvironment, normalizedMessageType));
         if (prodContracts.isEmpty()) {
             return failClosed(appName, packageName, "prod-contracts-not-found");
         }
@@ -115,8 +81,7 @@ public class RenovateCompatibilityService {
 
         MessageTypeRepository.MessageTypeSnapshot snapshot;
         try {
-            snapshot = snapshotCache.get(SnapshotKey.of(registryContract.get(), coordinate.definingSystem()),
-                    () -> loadSnapshot(registryContract.get(), coordinate.definingSystem()));
+            snapshot = lookups.registrySnapshot(SnapshotKey.of(registryContract.get(), coordinate.definingSystem()));
         } catch (MessageTypeRepoException ex) {
             if (ex.isInfrastructureFailure()) {
                 throw registryUnavailable(appName, packageName, ex);
@@ -154,14 +119,6 @@ public class RenovateCompatibilityService {
         return releases;
     }
 
-    private MessageTypeRepository.MessageTypeSnapshot loadSnapshot(DeployedMessageContract registryContract,
-                                                                   String definingSystem) {
-        try (MessageTypeRepository typeRepository = repositoryFactory.cloneRepository(registryContract.registryUrl())) {
-            return typeRepository.getMessageTypeSnapshot(
-                    registryContract.branch(), registryContract.messageType(), definingSystem);
-        }
-    }
-
     /**
      * @return the deployed contracts a candidate is compared with, in the order of the deployed contracts, with their
      * schemas: all deployed contracts in global mode, the same-topic opposite-role counterparts of the requesting
@@ -177,9 +134,7 @@ public class RenovateCompatibilityService {
             return List.of();
         }
         Set<UUID> ids = compared.stream().map(DeployedMessageContract::id).collect(Collectors.toUnmodifiableSet());
-        Map<UUID, MessageContractSchema> schemas = contractSchemasCache.get(ids, () ->
-                contractRepository.findSchemas(ids).stream()
-                        .collect(Collectors.toUnmodifiableMap(MessageContractSchema::id, Function.identity())));
+        Map<UUID, MessageContractSchema> schemas = lookups.contractSchemas(ids);
         return compared.stream()
                 .map(contract -> withSchema(contract, schemas.get(contract.id())))
                 .toList();
@@ -250,15 +205,8 @@ public class RenovateCompatibilityService {
         }
     }
 
-    /**
-     * The candidate schema is read at the immutable snapshot commit, so the same candidate always has the same schema.
-     */
     private void loadCandidateSchema(MessageContract candidate) {
-        String schema = candidateSchemaCache.get(CandidateSchemaKey.of(candidate), () -> {
-            schemaService.loadSchemas(List.of(candidate));
-            return candidate.getAvroProtocolSchema();
-        });
-        candidate.setAvroProtocolSchema(schema);
+        candidate.setAvroProtocolSchema(lookups.candidateSchema(CandidateSchemaKey.of(candidate), candidate));
     }
 
     private boolean globallyCompatible(MessageContract candidate, List<MessageContract> prodContracts) {
@@ -312,24 +260,6 @@ public class RenovateCompatibilityService {
     private RenovateRegistryException registryUnavailable(String appName, String packageName, RuntimeException cause) {
         log.error("Renovate registry unavailable app={} package={}", appName, packageName, cause);
         return new RenovateRegistryException("Message type registry is temporarily unavailable", cause);
-    }
-
-    private record DeployedContractsKey(String environment, String normalizedMessageType) {
-    }
-
-    private record SnapshotKey(String registryUrl, String branch, String messageType, String definingSystem) {
-        private static SnapshotKey of(DeployedMessageContract registryContract, String definingSystem) {
-            return new SnapshotKey(registryContract.registryUrl(), registryContract.branch(),
-                    registryContract.messageType(), definingSystem);
-        }
-    }
-
-    private record CandidateSchemaKey(String registryUrl, String branch, String commitHash, String messageType,
-                                      String messageTypeVersion) {
-        private static CandidateSchemaKey of(MessageContract candidate) {
-            return new CandidateSchemaKey(candidate.getRegistryUrl(), candidate.getBranch(), candidate.getCommitHash(),
-                    candidate.getMessageType(), candidate.getMessageTypeVersion());
-        }
     }
 
     private record MavenCoordinate(String artifactId, String definingSystem) {

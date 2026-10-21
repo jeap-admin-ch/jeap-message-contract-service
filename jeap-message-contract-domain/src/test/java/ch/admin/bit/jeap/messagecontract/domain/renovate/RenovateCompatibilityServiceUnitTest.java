@@ -19,11 +19,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -34,6 +29,10 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
+/**
+ * Tests the compatibility logic without caching: the lookups are called directly instead of through their caching
+ * Spring proxy. The caching is tested by {@link RenovateCompatibilityServiceCacheTest}.
+ */
 @SuppressWarnings("unchecked")
 class RenovateCompatibilityServiceUnitTest {
 
@@ -44,13 +43,12 @@ class RenovateCompatibilityServiceUnitTest {
     private final MessageTypeRepositoryFactory repositoryFactory = mock(MessageTypeRepositoryFactory.class);
     private final MessageSchemaService schemaService = mock(MessageSchemaService.class);
     private final SchemaCompatibilityService compatibilityService = mock(SchemaCompatibilityService.class);
-    private final MutableClock clock = new MutableClock();
     private RenovateCompatibilityService service;
 
     @BeforeEach
     void setUp() {
-        service = new RenovateCompatibilityService(contractRepository, repositoryFactory, schemaService,
-                compatibilityService, new RenovateProperties(), clock);
+        service = new RenovateCompatibilityService(
+                new RenovateLookups(contractRepository, repositoryFactory, schemaService), compatibilityService);
     }
 
     @ParameterizedTest
@@ -175,83 +173,6 @@ class RenovateCompatibilityServiceUnitTest {
     }
 
     @Test
-    void repeatedRequestsForSameMessageTypeAndEnvironmentAreServedFromCacheWithinTtl() {
-        DeployedMessageContract requestingConsumer = contract("requesting", MessageContractRole.CONSUMER);
-        DeployedMessageContract deployedProducer = contract("producer", MessageContractRole.PRODUCER);
-        MessageTypeRepository typeRepository = givenDeployedContractsAndRegistry(requestingConsumer, deployedProducer);
-        when(contractRepository.findSchemas(anyCollection())).thenReturn(List.of(
-                new MessageContractSchema(deployedProducer.id(), "producer-protocol", null)));
-        when(compatibilityService.validateReaderWriterCompatibility(any(), any())).thenReturn(List.of());
-
-        for (int i = 0; i < 3; i++) {
-            assertThat(service.findGloballyCompatibleReleases(PACKAGE_NAME, "1.0.0", "prod"))
-                    .extracting(RenovateRelease::version).containsExactly("1.1.0");
-            assertThat(service.findCompatibleReleasesForApp("requesting", PACKAGE_NAME, "1.0.0", "PROD"))
-                    .extracting(RenovateRelease::version).containsExactly("1.1.0");
-        }
-        clock.advance(Duration.ofMinutes(4));
-        assertThat(service.findGloballyCompatibleReleases(PACKAGE_NAME, "0.9.0", "PROD"))
-                .extracting(RenovateRelease::version).containsExactly("1.0.0", "1.1.0");
-
-        verify(contractRepository, times(1)).findCurrentlyDeployedContracts("PROD", "activzoneenteredevent");
-        verify(repositoryFactory, times(1)).cloneRepository("registry-url");
-        verify(typeRepository, times(1)).getMessageTypeSnapshot("master", "ActivZoneEnteredEvent", "activ");
-        // the candidate schema is loaded once per candidate version: 1.1.0, and 1.0.0 for the last request
-        verify(schemaService, times(2)).loadSchemas(anyList());
-        // global mode compares with all deployed contracts, app-specific mode only with the counterparts
-        verify(contractRepository).findSchemas(Set.of(requestingConsumer.id(), deployedProducer.id()));
-        verify(contractRepository).findSchemas(Set.of(deployedProducer.id()));
-        ArgumentCaptor<MessageContract> writers = ArgumentCaptor.forClass(MessageContract.class);
-        verify(compatibilityService, atLeastOnce()).validateReaderWriterCompatibility(any(), writers.capture());
-        assertThat(writers.getAllValues())
-                .filteredOn(writer -> writer.getAppName().equals("producer"))
-                .isNotEmpty()
-                .allMatch(writer -> "producer-protocol".equals(writer.getAvroProtocolSchema()));
-    }
-
-    @Test
-    void requestsAreAnsweredFromCurrentDataAfterTtlExpired() {
-        DeployedMessageContract deployedProducer = contract(MessageContractRole.PRODUCER);
-        givenDeployedContractsAndRegistry(deployedProducer);
-        when(compatibilityService.validateReaderWriterCompatibility(any(), any())).thenReturn(List.of());
-
-        service.findGloballyCompatibleReleases(PACKAGE_NAME, "1.0.0", "PROD");
-        clock.advance(Duration.ofMinutes(5));
-        service.findGloballyCompatibleReleases(PACKAGE_NAME, "1.0.0", "PROD");
-
-        verify(contractRepository, times(2)).findCurrentlyDeployedContracts("PROD", "activzoneenteredevent");
-        verify(repositoryFactory, times(2)).cloneRepository("registry-url");
-        verify(schemaService, times(2)).loadSchemas(anyList());
-    }
-
-    @Test
-    void cacheIsPerEnvironment() {
-        when(contractRepository.findCurrentlyDeployedContracts(anyString(), anyString())).thenReturn(List.of());
-
-        service.findGloballyCompatibleReleases(PACKAGE_NAME, "1.0.0", "PROD");
-        service.findGloballyCompatibleReleases(PACKAGE_NAME, "1.0.0", "REF");
-        service.findGloballyCompatibleReleases(PACKAGE_NAME, "1.0.0", "PROD");
-
-        verify(contractRepository, times(1)).findCurrentlyDeployedContracts("PROD", "activzoneenteredevent");
-        verify(contractRepository, times(1)).findCurrentlyDeployedContracts("REF", "activzoneenteredevent");
-    }
-
-    @Test
-    void registryFailureIsNotCached() {
-        DeployedMessageContract deployedProducer = contract(MessageContractRole.PRODUCER);
-        MessageTypeRepository typeRepository = givenDeployedContractsAndRegistry(deployedProducer);
-        when(typeRepository.getMessageTypeSnapshot("master", "ActivZoneEnteredEvent", "activ"))
-                .thenThrow(new IllegalStateException("registry down"))
-                .thenReturn(new MessageTypeRepository.MessageTypeSnapshot(SNAPSHOT_COMMIT, List.of("1.1.0")));
-        when(compatibilityService.validateReaderWriterCompatibility(any(), any())).thenReturn(List.of());
-
-        assertThatThrownBy(() -> service.findGloballyCompatibleReleases(PACKAGE_NAME, "1.0.0", "PROD"))
-                .isInstanceOf(RenovateRegistryException.class);
-        assertThat(service.findGloballyCompatibleReleases(PACKAGE_NAME, "1.0.0", "PROD"))
-                .extracting(RenovateRelease::version).containsExactly("1.1.0");
-    }
-
-    @Test
     void schemasOfDeployedContractsAreNotLoadedWithoutNewerCandidate() {
         DeployedMessageContract deployedProducer = contract(MessageContractRole.PRODUCER);
         givenDeployedContractsAndRegistry(deployedProducer);
@@ -263,17 +184,28 @@ class RenovateCompatibilityServiceUnitTest {
     }
 
     @Test
-    void cachingIsDisabledWithZeroTtl() {
-        RenovateProperties properties = new RenovateProperties();
-        properties.setCacheTtl(Duration.ZERO);
-        service = new RenovateCompatibilityService(contractRepository, repositoryFactory, schemaService,
-                compatibilityService, properties, clock);
-        when(contractRepository.findCurrentlyDeployedContracts(anyString(), anyString())).thenReturn(List.of());
+    void schemasAreLoadedForComparedContractsOnlyAndReachTheComparison() {
+        DeployedMessageContract requestingConsumer = contract("requesting", MessageContractRole.CONSUMER);
+        DeployedMessageContract deployedProducer = contract("producer", MessageContractRole.PRODUCER);
+        givenDeployedContractsAndRegistry(requestingConsumer, deployedProducer);
+        when(contractRepository.findSchemas(anyCollection())).thenReturn(List.of(
+                new MessageContractSchema(deployedProducer.id(), "producer-protocol", null)));
+        when(compatibilityService.validateReaderWriterCompatibility(any(), any())).thenReturn(List.of());
 
-        service.findGloballyCompatibleReleases(PACKAGE_NAME, "1.0.0", "PROD");
-        service.findGloballyCompatibleReleases(PACKAGE_NAME, "1.0.0", "PROD");
+        assertThat(service.findGloballyCompatibleReleases(PACKAGE_NAME, "1.0.0", "prod"))
+                .extracting(RenovateRelease::version).containsExactly("1.1.0");
+        assertThat(service.findCompatibleReleasesForApp("requesting", PACKAGE_NAME, "1.0.0", "PROD"))
+                .extracting(RenovateRelease::version).containsExactly("1.1.0");
 
-        verify(contractRepository, times(2)).findCurrentlyDeployedContracts("PROD", "activzoneenteredevent");
+        // global mode compares with all deployed contracts, app-specific mode only with the counterparts
+        verify(contractRepository).findSchemas(Set.of(requestingConsumer.id(), deployedProducer.id()));
+        verify(contractRepository).findSchemas(Set.of(deployedProducer.id()));
+        ArgumentCaptor<MessageContract> writers = ArgumentCaptor.forClass(MessageContract.class);
+        verify(compatibilityService, atLeastOnce()).validateReaderWriterCompatibility(any(), writers.capture());
+        assertThat(writers.getAllValues())
+                .filteredOn(writer -> writer.getAppName().equals("producer"))
+                .isNotEmpty()
+                .allMatch(writer -> "producer-protocol".equals(writer.getAvroProtocolSchema()));
     }
 
     private MessageTypeRepository givenDeployedContractsAndRegistry(DeployedMessageContract... deployedContracts) {
@@ -284,29 +216,6 @@ class RenovateCompatibilityServiceUnitTest {
         when(typeRepository.getMessageTypeSnapshot("master", "ActivZoneEnteredEvent", "activ"))
                 .thenReturn(new MessageTypeRepository.MessageTypeSnapshot(SNAPSHOT_COMMIT, List.of("1.0.0", "1.1.0")));
         return typeRepository;
-    }
-
-    private static final class MutableClock extends Clock {
-        private Instant now = Instant.parse("2026-10-21T02:59:00Z");
-
-        void advance(Duration duration) {
-            now = now.plus(duration);
-        }
-
-        @Override
-        public ZoneId getZone() {
-            return ZoneOffset.UTC;
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone) {
-            return this;
-        }
-
-        @Override
-        public Instant instant() {
-            return now;
-        }
     }
 
     private static DeployedMessageContract contract(MessageContractRole role) {

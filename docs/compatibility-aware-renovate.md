@@ -149,7 +149,8 @@ endpoints but cannot upload contracts or change deployments.
   database queries and registry reads, MCS reuses the deployed contracts per message type and environment, the
   schemas of the compared contracts, the registry versions per registry source and the candidate schemas for
   `jeap.messagecontract.renovate.cache-ttl` (default `5m`). Within this time, newly registered deployments and newly
-  published message type versions may not yet be taken into account. Failures are not cached. Set the property to
+  published message type versions may not yet be taken into account. Concurrent requests for the same data wait for
+  a single load, failures are not cached, and each of these caches holds at most 1000 entries. Set the property to
   `0s` to answer every request from the latest data.
 - Summary logs identify global or app-specific mode, application when supplied, package, current version,
   environment, deployed-contract count, candidate count, and compatible count. Fail-closed paths log a reason
