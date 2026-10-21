@@ -186,6 +186,7 @@ Apache License Version 2.0
  * spring-boot-starter-webmvc-test - [org.springframework.boot:spring-boot-starter-webmvc-test](https://spring.io/projects/spring-boot)
  * spring-boot-test - [org.springframework.boot:spring-boot-test](https://spring.io/projects/spring-boot)
  * spring-boot-test-autoconfigure - [org.springframework.boot:spring-boot-test-autoconfigure](https://spring.io/projects/spring-boot)
+ * spring-boot-testcontainers - [org.springframework.boot:spring-boot-testcontainers](https://spring.io/projects/spring-boot)
  * spring-boot-tomcat - [org.springframework.boot:spring-boot-tomcat](https://spring.io/projects/spring-boot)
  * spring-boot-transaction - [org.springframework.boot:spring-boot-transaction](https://spring.io/projects/spring-boot)
  * spring-boot-validation - [org.springframework.boot:spring-boot-validation](https://spring.io/projects/spring-boot)
@@ -259,11 +260,6 @@ Eclipse Public License v2.0
  * JUnit Platform Commons - [org.junit.platform:junit-platform-commons](https://junit.org/)
  * JUnit Platform Engine API - [org.junit.platform:junit-platform-engine](https://junit.org/)
 
-Eclipse Public License, Version 1.0
--------------------------------
-
- * H2 Database Engine - [com.h2database:h2](https://h2database.com)
-
 GNU General Public License, version 2 (GPL2), with the classpath exception
 -------------------------------
 
@@ -295,14 +291,8 @@ MIT License
  * Testcontainers Core - [org.testcontainers:testcontainers](https://java.testcontainers.org)
  * Testcontainers :: Database-Commons - [org.testcontainers:testcontainers-database-commons](https://java.testcontainers.org)
  * Testcontainers :: JDBC - [org.testcontainers:testcontainers-jdbc](https://java.testcontainers.org)
- * Testcontainers :: JUnit Jupiter Extension - [org.testcontainers:testcontainers-junit-jupiter](https://java.testcontainers.org)
  * Testcontainers :: JDBC :: PostgreSQL - [org.testcontainers:testcontainers-postgresql](https://java.testcontainers.org)
  * webjars-locator-lite - [org.webjars:webjars-locator-lite](https://webjars.org)
-
-Mozilla Public License, Version 2.0
--------------------------------
-
- * H2 Database Engine - [com.h2database:h2](https://h2database.com)
 
 Public Domain
 -------------------------------
