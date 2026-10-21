@@ -145,8 +145,12 @@ endpoints but cannot upload contracts or change deployments.
 - Invalid coordinates, versions, application parameters, and environments return HTTP `400`.
 - Authentication and authorization failures return HTTP `401` and `403` respectively.
 - Registry clone, checkout, and version-enumeration infrastructure failures return HTTP `503`.
-- The endpoint does not add a compatibility-result cache. Every request reflects the latest deployment joins available
-  to MCS.
+- Renovate queries many message types for many repositories at once. To keep such a burst from repeating the same
+  database queries and registry reads, MCS reuses the deployed contracts per message type and environment, the
+  schemas of the compared contracts, the registry versions per registry source and the candidate schemas for
+  `jeap.messagecontract.renovate.cache-ttl` (default `5m`). Within this time, newly registered deployments and newly
+  published message type versions may not yet be taken into account. Failures are not cached. Set the property to
+  `0s` to answer every request from the latest data.
 - Summary logs identify global or app-specific mode, application when supplied, package, current version,
   environment, deployed-contract count, candidate count, and compatible count. Fail-closed paths log a reason
   category; tokens and contract payloads are not logged.

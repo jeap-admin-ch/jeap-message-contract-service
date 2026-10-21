@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -73,8 +74,15 @@ public class MessageContractRepository {
         return jpaRepository.findAllByEnvironment(environment);
     }
 
-    public List<MessageContract> findCurrentlyDeployedContracts(String environment, String normalizedMessageType) {
+    public List<DeployedMessageContract> findCurrentlyDeployedContracts(String environment, String normalizedMessageType) {
         return jpaRepository.findCurrentlyDeployedByEnvironmentAndMessageType(environment, normalizedMessageType);
+    }
+
+    public List<MessageContractSchema> findSchemas(Collection<UUID> messageContractIds) {
+        if (messageContractIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findSchemasByIdIn(messageContractIds);
     }
 
     public List<MessageContractInfo> findAllMessageContractInfos() {

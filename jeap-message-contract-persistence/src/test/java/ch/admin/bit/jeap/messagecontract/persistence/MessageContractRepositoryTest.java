@@ -369,12 +369,35 @@ class MessageContractRepositoryTest {
         deploymentRepository.save(Deployment.builder().appName("app1").appVersion("v2").environment("PROD").build());
         deploymentRepository.save(Deployment.builder().appName("app2").appVersion("v1").environment("PROD").build());
 
-        List<MessageContract> contracts = messageContractRepository.findCurrentlyDeployedContracts(
+        List<DeployedMessageContract> contracts = messageContractRepository.findCurrentlyDeployedContracts(
                 "PROD", TEST_TYPE.toLowerCase());
 
-        assertThat(contracts).containsExactly(app1v2);
+        assertThat(contracts).containsExactly(new DeployedMessageContract(app1v2.getId(), "app1", "v2", TEST_TYPE,
+                VERSION_1_0_0, TOPIC, MessageContractRole.PRODUCER, "https://git/repo", MASTER, CompatibilityMode.BACKWARD, null));
         assertThat(messageContractRepository.findCurrentlyDeployedContracts("REF", TEST_TYPE.toLowerCase()))
                 .isEmpty();
+    }
+
+    @Test
+    void findCurrentlyDeployedContractsExcludesDeletedContracts() {
+        MessageContract deleted = createContract("app1", "v1", null, MASTER, MessageContractRole.PRODUCER, null);
+        messageContractRepository.saveContracts(List.of(deleted));
+        deploymentRepository.save(Deployment.builder().appName("app1").appVersion("v1").environment("PROD").build());
+        messageContractRepository.deleteContract("app1", "v1", TEST_TYPE, VERSION_1_0_0, TOPIC, MessageContractRole.PRODUCER);
+
+        assertThat(messageContractRepository.findCurrentlyDeployedContracts("PROD", TEST_TYPE.toLowerCase()))
+                .isEmpty();
+    }
+
+    @Test
+    void findSchemasReturnsTheSchemasOfTheRequestedContracts() {
+        MessageContract requested = createContract("app1", "v1", null, MASTER, MessageContractRole.PRODUCER, null);
+        MessageContract other = createContract("app2", "v1", null, MASTER, MessageContractRole.CONSUMER, null);
+        messageContractRepository.saveContracts(List.of(requested, other));
+
+        assertThat(messageContractRepository.findSchemas(List.of(requested.getId())))
+                .containsExactly(new MessageContractSchema(requested.getId(), "{}", null));
+        assertThat(messageContractRepository.findSchemas(List.of())).isEmpty();
     }
 
     @Test

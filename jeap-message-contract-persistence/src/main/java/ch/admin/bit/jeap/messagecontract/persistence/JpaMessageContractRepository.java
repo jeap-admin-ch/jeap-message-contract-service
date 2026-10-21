@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -94,8 +95,16 @@ public interface JpaMessageContractRepository extends CrudRepository<MessageCont
             """, nativeQuery = true)
     List<MessageContractInfo> findAllByEnvironment(@Param("environment") String environment);
 
+    /**
+     * Selects only the columns needed to find and compare the deployed contracts of a message type, not the large
+     * avro schemas. The query is backed by an index on the lower-cased message type of non-deleted contracts and an
+     * index on the deployments per application and environment ordered by creation time.
+     */
     @Query("""
-            select mc from MessageContract mc
+            select new ch.admin.bit.jeap.messagecontract.persistence.DeployedMessageContract(
+                mc.id, mc.appName, mc.appVersion, mc.messageType, mc.messageTypeVersion, mc.topic, mc.role,
+                mc.registryUrl, mc.branch, mc.compatibilityMode, mc.encryptionKeyId)
+            from MessageContract mc
             where mc.deleted = false
               and lower(mc.messageType) = :normalizedMessageType
               and exists (
@@ -109,9 +118,17 @@ public interface JpaMessageContractRepository extends CrudRepository<MessageCont
                     )
               )
             """)
-    List<MessageContract> findCurrentlyDeployedByEnvironmentAndMessageType(
+    List<DeployedMessageContract> findCurrentlyDeployedByEnvironmentAndMessageType(
             @Param("environment") String environment,
             @Param("normalizedMessageType") String normalizedMessageType);
+
+    @Query("""
+            select new ch.admin.bit.jeap.messagecontract.persistence.MessageContractSchema(
+                mc.id, mc.avroProtocolSchema, mc.avroSchema)
+            from MessageContract mc
+            where mc.id in :ids
+            """)
+    List<MessageContractSchema> findSchemasByIdIn(@Param("ids") Collection<UUID> ids);
 
     List<MessageContractInfo> findAllByDeletedFalse();
 }

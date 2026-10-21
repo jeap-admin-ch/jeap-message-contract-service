@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -43,6 +44,8 @@ class MessageContractRepositoryPostgresTest {
     private MessageContractRepository messageContractRepository;
     @Autowired
     private DeploymentRepository deploymentRepository;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void findsOnlyLatestDeploymentForEnvironmentAndNormalizedMessageTypeOnPostgres() {
@@ -59,8 +62,24 @@ class MessageContractRepositoryPostgresTest {
                 .overrideCreatedAt(currentDeploymentTime).build());
 
         assertThat(messageContractRepository.findCurrentlyDeployedContracts("PROD", "targetevent"))
-                .containsExactly(currentContract);
+                .extracting(DeployedMessageContract::id)
+                .containsExactly(currentContract.getId());
         assertThat(messageContractRepository.findCurrentlyDeployedContracts("REF", "targetevent")).isEmpty();
+        assertThat(messageContractRepository.findSchemas(List.of(currentContract.getId())))
+                .containsExactly(new MessageContractSchema(currentContract.getId(), "{}", null));
+    }
+
+    @Test
+    void createsIndexesForTheCurrentlyDeployedContractsLookup() {
+        List<String> indexDefinitions = jdbcTemplate.queryForList(
+                "select indexdef from pg_indexes where schemaname = 'data'", String.class);
+
+        assertThat(indexDefinitions)
+                .anyMatch(definition -> definition.startsWith("CREATE INDEX message_contract_lower_message_type_not_deleted")
+                        && definition.contains("(lower((message_type)::text))")
+                        && definition.contains("WHERE (deleted = false)"))
+                .anyMatch(definition -> definition.startsWith("CREATE INDEX deployment_app_name_environment_created_at")
+                        && definition.contains("(app_name, environment, created_at DESC)"));
     }
 
     private static MessageContract contract(String appName, String appVersion, String messageType) {
