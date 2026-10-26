@@ -3,6 +3,8 @@
 Service to manage messaging contracts used in compatibility checks upon deployment of a service, similar to
 consumer-driven contract testing.
 
+See the [Message Contract Service](docs/message-contract-service.md) for details.
+
 ## Installing / Getting started
 
 Normally you will not use this project directly, but instead set up your own message contract service

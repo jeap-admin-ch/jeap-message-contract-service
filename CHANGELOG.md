@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > - The Spring Boot 4 upgrade process happens on the `master` branch, with the goal of releasing Spring Boot 4 compatible versions of all jeap components in a single major release.
 
+## [12.16.1] - 2026-10-26
+
+- Update documentation
+
 ## [12.16.0] - 2026-10-21
 
 ### Dependencies
