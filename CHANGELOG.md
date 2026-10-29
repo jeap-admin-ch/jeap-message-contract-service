@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > - The Spring Boot 4 upgrade process happens on the `master` branch, with the goal of releasing Spring Boot 4 compatible versions of all jeap components in a single major release.
 
+## [12.19.1] - 2026-10-29
+
+### Security
+- Fix CVE-2026-94029 (SNYK-JAVA-ORGAPACHESSHD-21715425, resource exhaustion in the SFTP v6 `check-file-name` / `check-file-handle` extension of `org.apache.sshd:sshd-sftp` 2.19.0) by removing the dependency on `org.eclipse.jgit:org.eclipse.jgit.ssh.apache`, which pulled in `sshd-sftp` and `sshd-osgi`. The repositories are cloned over HTTPS, so the SSH transport is not needed; `org.eclipse.jgit` itself is unchanged.
+
 ## [12.19.0] - 2026-10-28
 
 ### Dependencies
